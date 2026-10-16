@@ -1,0 +1,698 @@
+﻿using System;
+using System.ComponentModel;
+using System.Data;
+using System.Data.SQLite;
+using System.Windows.Forms;
+using System.IO;
+using System.Drawing;
+
+namespace pz6.forms
+{
+    public partial class Table2 : Form
+    {
+        private SQLiteConnection sc = new SQLiteConnection();
+        private SQLiteDataAdapter topAdapter;
+        private SQLiteDataAdapter bottomAdapter;
+        private DataTable topDt = new DataTable();
+        private DataTable bottomDt = new DataTable();
+
+        private string topQuery;
+        private string bottomQueryTemplate;
+
+        public Table2(string nameF, string connString)
+        {
+            InitializeComponent();
+            this.Text = nameF;
+            this.Name = nameF;
+            this.sc.ConnectionString = connString;
+
+            switch (this.Name)
+            {
+                case "Клиенты":
+                    topQuery = "SELECT client_id AS 'ИД', name AS 'Имя', phone AS 'Телефон', email AS 'Электронная почта' FROM client;";
+                    bottomQueryTemplate = "SELECT o.order_id AS 'Номер заказа', o.order_date AS 'Дата', s.name AS 'Статус', o.city AS 'Город', o.street AS 'Улица', o.house_number AS 'Дом', o.building AS 'Корпус', o.apartment AS 'Квартира' FROM orders o JOIN status s ON o.status_id = s.status_id WHERE o.client_id = @id AND s.name <> 'Выполнен';";
+                    break;
+
+                case "Заказы":
+                    topQuery = "SELECT o.order_id AS 'Номер заказа', o.order_date AS 'Дата', s.name AS 'Статус', o.city AS 'Город', o.street AS 'Улица', o.house_number AS 'Дом', o.building AS 'Корпус', o.apartment AS 'Квартира' FROM orders o JOIN status s ON o.status_id = s.status_id;";
+                    bottomQueryTemplate = null; // will be determined dynamically
+                    break;
+
+                case "Поставки":
+                    topQuery = "SELECT d.delivery_id AS 'ИД поставки', d.delivery_date AS 'Дата', e.last_name || ' ' || e.first_name AS 'Сотрудник', w.name AS 'Склад', s.name AS 'Поставщик' FROM delivery d JOIN employee e ON d.employee_id = e.employee_id JOIN warehouse w ON d.warehouse_id = w.warehouse_id LEFT JOIN supplier s ON d.supplier_id = s.supplier_id;";
+                    // bottomQueryTemplate will be chosen dynamically depending on existence of delivery composition table
+                    bottomQueryTemplate = null;
+                    break;
+
+                default:
+                    MessageBox.Show("Ошибка! Выбранная таблица не может быть отражена!");
+                    break;
+            }
+
+            // load top
+            if (!string.IsNullOrEmpty(topQuery))
+            {
+                topAdapter = new SQLiteDataAdapter(topQuery, sc);
+                topDt.Clear();
+                topAdapter.Fill(topDt);
+                dataGridView1.DataSource = topDt;
+                // скрыть идентификатор в верхней таблице, если он есть
+                try
+                {
+                    if (dataGridView1.Columns.Count > 0)
+                    {
+                        dataGridView1.Columns[0].Visible = false;
+                        dataGridView1.Columns[0].ReadOnly = true;
+                    }
+                }
+                catch { }
+            }
+
+            // initial bottom empty
+            dataGridView2.DataSource = bottomDt;
+            try
+            {
+                if (dataGridView2.Columns.Count > 0)
+                {
+                    dataGridView2.Columns[0].Visible = false;
+                    dataGridView2.Columns[0].ReadOnly = true;
+                }
+            }
+            catch { }
+
+            // subscribe events
+            dataGridView1.SelectionChanged += DataGridView1_SelectionChanged;
+
+            InsTableTop.Click += InsTableTop_Click;
+            EditTableTop.Click += EditTableTop_Click;
+            DelTableTop.Click += DelTableTop_Click;
+            CloseTableTop.Click += CloseTableTop_Click;
+
+            InsTableBottom.Click += InsTableBottom_Click;
+            EditTableBottom.Click += EditTableBottom_Click;
+            DelTableBottom.Click += DelTableBottom_Click;
+            CloseTableBottom.Click += CloseTableBottom_Click;
+
+            // попытаться загрузить иконки
+            try
+            {
+                var iconsDir = FindIconsDir();
+                if (!string.IsNullOrEmpty(iconsDir))
+                {
+                    LoadButtonIcon(InsTableTop, Path.Combine(iconsDir, "add.png"));
+                    LoadButtonIcon(EditTableTop, Path.Combine(iconsDir, "edit.png"));
+                    LoadButtonIcon(DelTableTop, Path.Combine(iconsDir, "delete.png"));
+                    LoadButtonIcon(CloseTableTop, Path.Combine(iconsDir, "close.png"));
+                    LoadButtonIcon(InsTableBottom, Path.Combine(iconsDir, "add.png"));
+                    LoadButtonIcon(EditTableBottom, Path.Combine(iconsDir, "edit.png"));
+                    LoadButtonIcon(DelTableBottom, Path.Combine(iconsDir, "delete.png"));
+                    LoadButtonIcon(CloseTableBottom, Path.Combine(iconsDir, "close.png"));
+                }
+            }
+            catch { }
+        }
+
+        private string FindIconsDir()
+        {
+            var baseDir = AppDomain.CurrentDomain.BaseDirectory;
+            var candidates = new[] {
+                Path.Combine(baseDir, "icons"),
+                Path.Combine(baseDir, "..", "icons"),
+                Path.Combine(baseDir, "..", "..", "icons"),
+                Path.Combine(baseDir, "pz6", "icons"),
+                Path.Combine(baseDir, "..", "pz6", "icons"),
+                Path.Combine(baseDir, "..", "..", "pz6", "icons")
+            };
+            foreach (var c in candidates)
+            {
+                try
+                {
+                    var full = Path.GetFullPath(c);
+                    if (Directory.Exists(full)) return full;
+                }
+                catch { }
+            }
+            return null;
+        }
+
+        private void LoadButtonIcon(System.Windows.Forms.ToolStripButton btn, string path)
+        {
+            try { if (File.Exists(path)) btn.Image = Image.FromFile(path); } catch { }
+        }
+
+        private void DataGridView1_SelectionChanged(object sender, EventArgs e)
+        {
+            if (dataGridView1.CurrentRow == null) return;
+
+            object idObj = dataGridView1.CurrentRow.Cells[0].Value;
+            if (idObj == null) return;
+
+            int id;
+            if (!int.TryParse(idObj.ToString(), out id)) return;
+
+            switch (this.Name)
+            {
+                case "Клиенты":
+                    LoadOrdersForClient(id);
+                    break;
+
+                case "Поставки":
+                    LoadDeliveryComposition(id);
+                    break;
+                case "Заказы":
+                    LoadOrderComposition(id);
+                    break;
+            }
+        }
+
+        private string FindTableWithColumn(string columnName)
+        {
+            var tableNames = new System.Collections.Generic.List<string>();
+            try
+            {
+                using (var connection = new SQLiteConnection(sc.ConnectionString))
+                using (var cmd = new SQLiteCommand("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name;", connection))
+                {
+                    connection.Open();
+                    using (var reader = cmd.ExecuteReader())
+                    {
+                        while (reader.Read())
+                        {
+                            var table = reader[0].ToString();
+                            if (!table.StartsWith("sqlite_", StringComparison.OrdinalIgnoreCase)) tableNames.Add(table);
+                        }
+                    }
+                }
+            }
+            catch { return null; }
+
+            foreach (var table in tableNames)
+            {
+                if (table.Equals("orders", StringComparison.OrdinalIgnoreCase) || table.Equals("delivery", StringComparison.OrdinalIgnoreCase)) continue;
+                try
+                {
+                    using (var connection = new SQLiteConnection(sc.ConnectionString))
+                    using (var cmd = new SQLiteCommand($"PRAGMA table_info([{table}]);", connection))
+                    {
+                        connection.Open();
+                        using (var reader = cmd.ExecuteReader())
+                        {
+                            while (reader.Read())
+                            {
+                                if (reader[1].ToString().Equals(columnName, StringComparison.OrdinalIgnoreCase)) return table;
+                            }
+                        }
+                    }
+                }
+                catch { }
+            }
+            return null;
+        }
+
+        private void LoadOrderComposition(int orderId)
+        {
+            bottomDt.Clear();
+            // find table that contains order_id
+            string table = FindTableWithColumn("order_id");
+            if (!string.IsNullOrEmpty(table))
+            {
+                // try to detect product relationship
+                // if table has product_id and product exists, join
+                string productTable = null;
+                try
+                {
+                    sc.Open();
+                    using (var cmd = new SQLiteCommand($"PRAGMA table_info({table});", sc))
+                    using (var r = cmd.ExecuteReader())
+                    {
+                        while (r.Read())
+                        {
+                            var col = r[1].ToString();
+                            if (col.Equals("product_id", StringComparison.OrdinalIgnoreCase)) productTable = "product";
+                        }
+                    }
+                    sc.Close();
+                }
+                catch { if (sc.State == ConnectionState.Open) sc.Close(); }
+
+                if (productTable != null)
+                {
+                    string q = $"SELECT {table}.order_id AS 'Номер заказа', product.name AS 'Товар', {table}.quantity AS 'Количество' FROM {table} JOIN product ON {table}.product_id = product.product_id WHERE {table}.order_id = @id;";
+                    bottomAdapter = new SQLiteDataAdapter(q, sc);
+                    bottomAdapter.SelectCommand.Parameters.AddWithValue("@id", orderId);
+                    bottomAdapter.Fill(bottomDt);
+                    dataGridView2.DataSource = bottomDt;
+                    try { if (dataGridView2.Columns.Count > 0) { dataGridView2.Columns[0].Visible = false; dataGridView2.Columns[0].ReadOnly = true; } } catch { }
+                    return;
+                }
+
+                // else select all columns from that table for order
+                string q2 = $"SELECT * FROM {table} WHERE order_id = @id;";
+                bottomAdapter = new SQLiteDataAdapter(q2, sc);
+                bottomAdapter.SelectCommand.Parameters.AddWithValue("@id", orderId);
+                bottomAdapter.Fill(bottomDt);
+                if (bottomDt.Columns.Count == 0)
+                {
+                    bottomDt.Columns.Add("Сообщение");
+                    bottomDt.Rows.Add("Состав заказа не найден.");
+                }
+                dataGridView2.DataSource = bottomDt;
+                try { if (dataGridView2.Columns.Count > 0) { dataGridView2.Columns[0].Visible = false; dataGridView2.Columns[0].ReadOnly = true; } } catch { }
+                return;
+            }
+
+            bottomDt.Columns.Clear();
+            bottomDt.Columns.Add("Сообщение");
+            bottomDt.Rows.Add("Состав заказа не найден в базе.");
+            dataGridView2.DataSource = bottomDt;
+        }
+
+        private void LoadOrdersForClient(int clientId)
+        {
+            bottomDt.Clear();
+            bottomAdapter = new SQLiteDataAdapter();
+            var cmd = new SQLiteCommand(bottomQueryTemplate, sc);
+            cmd.Parameters.AddWithValue("@id", clientId);
+            bottomAdapter.SelectCommand = cmd;
+            bottomAdapter.Fill(bottomDt);
+            dataGridView2.DataSource = bottomDt;
+            // скрыть id колонки снизу, если она есть
+            try
+            {
+                if (dataGridView2.Columns.Count > 0)
+                {
+                    dataGridView2.Columns[0].Visible = false;
+                    dataGridView2.Columns[0].ReadOnly = true;
+                }
+            }
+            catch { }
+        }
+
+        private void LoadDeliveryComposition(int deliveryId)
+        {
+            bottomDt.Clear();
+
+            // попробуем найти таблицу состава динамически по колонке delivery_id
+            string compTable = FindTableWithColumn("delivery_id");
+            if (!string.IsNullOrEmpty(compTable))
+            {
+                // если есть таблица product и поле product_id, сделаем JOIN
+                bool hasProduct = false;
+                try
+                {
+                    sc.Open();
+                    using (var cmd = new SQLiteCommand($"PRAGMA table_info({compTable});", sc))
+                    using (var r = cmd.ExecuteReader())
+                    {
+                        while (r.Read())
+                        {
+                            if (r[1].ToString().Equals("product_id", StringComparison.OrdinalIgnoreCase)) hasProduct = true;
+                        }
+                    }
+                    sc.Close();
+                }
+                catch { if (sc.State == ConnectionState.Open) sc.Close(); }
+
+                if (hasProduct)
+                {
+                    string q = $"SELECT {compTable}.delivery_id AS 'ИД поставки', p.name AS 'Товар', {compTable}.quantity AS 'Количество' FROM {compTable} JOIN product p ON {compTable}.product_id = p.product_id WHERE {compTable}.delivery_id = @id;";
+                    bottomAdapter = new SQLiteDataAdapter(q, sc);
+                    bottomAdapter.SelectCommand.Parameters.AddWithValue("@id", deliveryId);
+                    bottomAdapter.Fill(bottomDt);
+                    dataGridView2.DataSource = bottomDt;
+                    try { if (dataGridView2.Columns.Count > 0) { dataGridView2.Columns[0].Visible = false; dataGridView2.Columns[0].ReadOnly = true; } } catch { }
+                    return;
+                }
+
+                // иначе просто выбрать строки из compTable
+                string q2 = $"SELECT * FROM {compTable} WHERE delivery_id = @id;";
+                bottomAdapter = new SQLiteDataAdapter(q2, sc);
+                bottomAdapter.SelectCommand.Parameters.AddWithValue("@id", deliveryId);
+                bottomAdapter.Fill(bottomDt);
+                if (bottomDt.Columns.Count == 0)
+                {
+                    bottomDt.Columns.Add("Сообщение");
+                    bottomDt.Rows.Add("Состав поставки пуст.");
+                }
+                dataGridView2.DataSource = bottomDt;
+                try { if (dataGridView2.Columns.Count > 0) { dataGridView2.Columns[0].Visible = false; dataGridView2.Columns[0].ReadOnly = true; } } catch { }
+                return;
+            }
+
+            // Если состав поставки не найден, показываем пустую таблицу с сообщением
+            bottomDt.Clear();
+            bottomDt.Columns.Clear();
+            bottomDt.Columns.Add("Сообщение");
+            bottomDt.Rows.Add("Состав поставки не найден в базе.");
+            dataGridView2.DataSource = bottomDt;
+        }
+
+        // --- Toolstrip handlers (пока заглушки, реализация CRUD будет добавлена далее) ---
+        private void InsTableTop_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                if (this.Name == "Клиенты")
+                {
+                    using (var f = new InsEditGeneric("Добавление клиента", "client", sc.ConnectionString, null))
+                    {
+                        if (f.ShowDialog() == DialogResult.OK)
+                        {
+                            topDt.Clear(); topAdapter.Fill(topDt);
+                        }
+                    }
+                }
+                else if (this.Name == "Поставки")
+                {
+                    using (var f = new InsEditGeneric("Добавление поставки", "delivery", sc.ConnectionString, null))
+                    {
+                        if (f.ShowDialog() == DialogResult.OK)
+                        {
+                            topDt.Clear(); topAdapter.Fill(topDt);
+                        }
+                    }
+                }
+                else if (this.Name == "Заказы")
+                {
+                    using (var f = new InsEditGeneric("Добавление заказа", "orders", sc.ConnectionString, null))
+                    {
+                        if (f.ShowDialog() == DialogResult.OK)
+                        {
+                            RefreshTopTable();
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("Ошибка: " + ex.Message, "Ошибка", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        private void RefreshTopTable()
+        {
+            topDt.Clear();
+            topAdapter.Fill(topDt);
+            dataGridView1.DataSource = topDt;
+            if (dataGridView1.Columns.Count > 0)
+            {
+                dataGridView1.Columns[0].Visible = false;
+                dataGridView1.Columns[0].ReadOnly = true;
+            }
+        }
+
+        private void EditTableTop_Click(object sender, EventArgs e)
+        {
+            if (dataGridView1.CurrentRow == null) return;
+            var idObj = dataGridView1.CurrentRow.Cells[0].Value;
+            if (idObj == null) return;
+            if (!int.TryParse(idObj.ToString(), out int id)) return;
+
+            try
+            {
+                if (this.Name == "Клиенты")
+                {
+                    using (var f = new InsEditGeneric("Редактирование клиента", "client", sc.ConnectionString, id))
+                    {
+                        if (f.ShowDialog() == DialogResult.OK)
+                        {
+                            topDt.Clear(); topAdapter.Fill(topDt);
+                        }
+                    }
+                }
+                else if (this.Name == "Поставки")
+                {
+                    using (var f = new InsEditGeneric("Редактирование поставки", "delivery", sc.ConnectionString, id))
+                    {
+                        if (f.ShowDialog() == DialogResult.OK)
+                        {
+                            topDt.Clear(); topAdapter.Fill(topDt);
+                        }
+                    }
+                }
+                else if (this.Name == "Заказы")
+                {
+                    using (var f = new InsEditGeneric("Редактирование заказа", "orders", sc.ConnectionString, id))
+                    {
+                        if (f.ShowDialog() == DialogResult.OK)
+                        {
+                            RefreshTopTable();
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("Ошибка: " + ex.Message, "Ошибка", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        private void DelTableTop_Click(object sender, EventArgs e)
+        {
+            if (dataGridView1.CurrentRow == null) return;
+            var idObj = dataGridView1.CurrentRow.Cells[0].Value;
+            if (idObj == null) return;
+            if (!int.TryParse(idObj.ToString(), out int id)) return;
+
+            var res = MessageBox.Show("Вы действительно хотите удалить выбранную запись?", "Подтвердите удаление", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+            if (res != DialogResult.Yes) return;
+
+            string sql = null;
+            if (this.Name == "Клиенты") sql = "DELETE FROM client WHERE client_id = @id;";
+            else if (this.Name == "Поставки") sql = "DELETE FROM delivery WHERE delivery_id = @id;";
+            else
+            {
+                MessageBox.Show("Удаление для этой таблицы не реализовано.", "Информация", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+
+            using (var cmd = new SQLiteCommand(sql, sc))
+            {
+                cmd.Parameters.AddWithValue("@id", id);
+                try
+                {
+                    sc.Open();
+                    cmd.ExecuteNonQuery();
+                    sc.Close();
+                }
+                catch (Exception ex)
+                {
+                    if (sc.State == ConnectionState.Open) sc.Close();
+                    MessageBox.Show("Ошибка при удалении: " + ex.Message, "Ошибка", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    return;
+                }
+            }
+
+            // обновить верхнюю таблицу
+            topDt.Clear();
+            topAdapter.Fill(topDt);
+        }
+
+        private void CloseTableTop_Click(object sender, EventArgs e)
+        {
+            this.Close();
+        }
+
+        private void InsTableBottom_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                if (this.Name == "Клиенты")
+                {
+                    using (var f = new InsEditGeneric("Добавление заказа", "orders", sc.ConnectionString, null))
+                    {
+                        if (f.ShowDialog() == DialogResult.OK)
+                        {
+                            // refresh bottom for current client
+                            if (dataGridView1.CurrentRow != null)
+                            {
+                                int cid = Convert.ToInt32(dataGridView1.CurrentRow.Cells[0].Value);
+                                LoadOrdersForClient(cid);
+                            }
+                        }
+                    }
+                }
+                else if (this.Name == "Поставки")
+                {
+                    // попробуем определить таблицу состава
+                    string tbl = null;
+                    using (var cmd = new SQLiteCommand("SELECT name FROM sqlite_master WHERE type='table' AND (name='delivery_product' OR name='delivery_item') LIMIT 1;", sc))
+                    {
+                        sc.Open(); var o = cmd.ExecuteScalar(); sc.Close(); if (o != null) tbl = o.ToString();
+                    }
+                    if (!string.IsNullOrEmpty(tbl))
+                    {
+                        using (var f = new InsEditGeneric("Добавление позиции поставки", tbl, sc.ConnectionString, null))
+                        {
+                            if (f.ShowDialog() == DialogResult.OK && dataGridView1.CurrentRow != null)
+                            {
+                                LoadDeliveryComposition(Convert.ToInt32(dataGridView1.CurrentRow.Cells[0].Value));
+                            }
+                        }
+                    }
+                    else
+                    {
+                        MessageBox.Show("Таблица состава поставки не найдена.", "Информация", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("Ошибка: " + ex.Message, "Ошибка", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        private void EditTableBottom_Click(object sender, EventArgs e)
+        {
+            if (dataGridView2.CurrentRow == null) return;
+            var idObj = dataGridView2.CurrentRow.Cells[0].Value;
+            if (idObj == null) return;
+            if (!int.TryParse(idObj.ToString(), out int id)) return;
+
+            try
+            {
+                if (this.Name == "Клиенты")
+                {
+                    using (var f = new InsEditGeneric("Редактирование заказа", "orders", sc.ConnectionString, id))
+                    {
+                        if (f.ShowDialog() == DialogResult.OK && dataGridView1.CurrentRow != null)
+                        {
+                            LoadOrdersForClient(Convert.ToInt32(dataGridView1.CurrentRow.Cells[0].Value));
+                        }
+                    }
+                }
+                else if (this.Name == "Поставки")
+                {
+                    string tbl = null;
+                    using (var cmd = new SQLiteCommand("SELECT name FROM sqlite_master WHERE type='table' AND (name='delivery_product' OR name='delivery_item') LIMIT 1;", sc))
+                    {
+                        sc.Open(); var o = cmd.ExecuteScalar(); sc.Close(); if (o != null) tbl = o.ToString();
+                    }
+                    if (!string.IsNullOrEmpty(tbl))
+                    {
+                        using (var f = new InsEditGeneric("Редактирование позиции поставки", tbl, sc.ConnectionString, id))
+                        {
+                            if (f.ShowDialog() == DialogResult.OK && dataGridView1.CurrentRow != null)
+                            {
+                                LoadDeliveryComposition(Convert.ToInt32(dataGridView1.CurrentRow.Cells[0].Value));
+                            }
+                        }
+                    }
+                    else
+                    {
+                        MessageBox.Show("Таблица состава поставки не найдена.", "Информация", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("Ошибка: " + ex.Message, "Ошибка", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        private void DelTableBottom_Click(object sender, EventArgs e)
+        {
+            if (dataGridView2.CurrentRow == null) return;
+            var idObj = dataGridView2.CurrentRow.Cells[0].Value;
+            if (idObj == null) return;
+            if (!int.TryParse(idObj.ToString(), out int id)) return;
+
+            var res = MessageBox.Show("Вы действительно хотите удалить выбранную запись?", "Подтвердите удаление", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+            if (res != DialogResult.Yes) return;
+
+            try
+            {
+                if (this.Name == "Клиенты")
+                {
+                    using (var cmd = new SQLiteCommand("DELETE FROM orders WHERE order_id = @id;", sc))
+                    {
+                        cmd.Parameters.AddWithValue("@id", id);
+                        sc.Open(); cmd.ExecuteNonQuery(); sc.Close();
+                    }
+                    bottomDt.Clear();
+                    // refresh bottom
+                    var cmd2 = new SQLiteCommand(bottomQueryTemplate, sc);
+                    cmd2.Parameters.AddWithValue("@id", (dataGridView1.CurrentRow?.Cells[0].Value ?? 0));
+                    bottomAdapter = new SQLiteDataAdapter(cmd2);
+                    bottomAdapter.Fill(bottomDt);
+                    dataGridView2.DataSource = bottomDt;
+                    return;
+                }
+
+                if (this.Name == "Поставки")
+                {
+                    // попробуем удалить из delivery_product по delivery_id и product_id, иначе удалить всю строку по delivery_id
+                    // определим, есть ли таблица delivery_product
+                    string checkSql = "SELECT name FROM sqlite_master WHERE type='table' AND (name='delivery_product' OR name='delivery_item') LIMIT 1;";
+                    string tableName = null;
+                    using (var cmd = new SQLiteCommand(checkSql, sc))
+                    {
+                        sc.Open();
+                        var obj = cmd.ExecuteScalar();
+                        sc.Close();
+                        if (obj != null) tableName = obj.ToString();
+                    }
+
+                    if (tableName == "delivery_product")
+                    {
+                        // постараемся получить product_id если есть в строке
+                        int deliveryId = id; // возможно первый столбец - delivery_id
+                        // Если в гриде есть колонка product_id, используем её
+                        int productId = -1;
+                        if (dataGridView2.Columns.Contains("product_id"))
+                        {
+                            var pid = dataGridView2.CurrentRow.Cells["product_id"].Value;
+                            int.TryParse(pid?.ToString(), out productId);
+                        }
+
+                        if (productId > 0)
+                        {
+                            using (var cmd = new SQLiteCommand("DELETE FROM delivery_product WHERE delivery_id = @d AND product_id = @p;", sc))
+                            {
+                                cmd.Parameters.AddWithValue("@d", deliveryId);
+                                cmd.Parameters.AddWithValue("@p", productId);
+                                sc.Open(); cmd.ExecuteNonQuery(); sc.Close();
+                            }
+                        }
+                        else
+                        {
+                            // удалить все позиции поставки
+                            using (var cmd = new SQLiteCommand("DELETE FROM delivery_product WHERE delivery_id = @d;", sc))
+                            {
+                                cmd.Parameters.AddWithValue("@d", deliveryId);
+                                sc.Open(); cmd.ExecuteNonQuery(); sc.Close();
+                            }
+                        }
+
+                        // обновить нижнюю таблицу
+                        LoadDeliveryComposition((int)(dataGridView1.CurrentRow.Cells[0].Value));
+                        return;
+                    }
+
+                    // если таблицы состава нет, попробуем удалить саму поставку (если по ошибке пытались удалить внизу)
+                    using (var cmd = new SQLiteCommand("DELETE FROM delivery WHERE delivery_id = @id;", sc))
+                    {
+                        cmd.Parameters.AddWithValue("@id", id);
+                        sc.Open(); cmd.ExecuteNonQuery(); sc.Close();
+                    }
+                    topDt.Clear(); topAdapter.Fill(topDt);
+                    bottomDt.Clear();
+                    dataGridView2.DataSource = bottomDt;
+                    return;
+                }
+
+                MessageBox.Show("Удаление для этой таблицы не реализовано.", "Информация", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+            catch (Exception ex)
+            {
+                if (sc.State == ConnectionState.Open) sc.Close();
+                MessageBox.Show("Ошибка при удалении: " + ex.Message, "Ошибка", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        private void CloseTableBottom_Click(object sender, EventArgs e)
+        {
+            this.Close();
+        }
+    }
+}

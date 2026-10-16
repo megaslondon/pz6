@@ -1,0 +1,174 @@
+﻿using System;
+using System.Collections.Generic;
+using System.ComponentModel;
+using System.Data;
+using System.Data.SQLite;
+using System.Drawing;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+using System.Windows.Forms;
+
+namespace pz6.forms.employee
+{
+    public partial class InsEditEmployee : Form
+    {
+        private SQLiteConnection sc;
+        private SQLiteCommand command;
+        private SQLiteDataAdapter a;
+        private DataSet tmp;
+        private DataRow dr;
+        private bool isEdit = false;
+
+        public InsEditEmployee(string name, string connString)
+        {
+            InitializeComponent();
+            this.changePasswordButton.Visible = false;
+            this.Text = name;
+            sc = new SQLiteConnection();
+            this.sc.ConnectionString = connString;
+            tmp = new DataSet();
+
+            tmp.Tables.Add(new DataTable("role"));
+            a = new SQLiteDataAdapter("select * from role", sc);
+            a.Fill(tmp.Tables["role"]);
+
+            roleComboBox.DisplayMember = tmp.Tables["role"].Columns["name"].ToString();
+            roleComboBox.ValueMember = tmp.Tables["role"].Columns["role_id"].ToString();
+            roleComboBox.DataSource = tmp.Tables["role"];
+            // attach OK handler
+            try { this.okButton.Click += OkButton_Click; } catch { }
+        }
+        public InsEditEmployee(string name, string connString, int employeeId)
+        {
+            InitializeComponent();
+            this.Text = name;
+            sc = new SQLiteConnection();
+            this.sc.ConnectionString = connString;
+            tmp = new DataSet();
+
+            tmp.Tables.Add(new DataTable("role"));
+            a = new SQLiteDataAdapter("select * from role", sc);
+            a.Fill(tmp.Tables["role"]);
+
+            roleComboBox.DisplayMember = tmp.Tables["role"].Columns["name"].ToString();
+            roleComboBox.ValueMember = tmp.Tables["role"].Columns["role_id"].ToString();
+            roleComboBox.DataSource = tmp.Tables["role"];
+
+            // attach OK handler
+            try { this.okButton.Click += OkButton_Click; } catch { }
+
+            // load employee data from DB
+            try
+            {
+                using (var cmd = new SQLiteCommand("SELECT * FROM employee WHERE employee_id = @id LIMIT 1;", sc))
+                {
+                    cmd.Parameters.AddWithValue("@id", employeeId);
+                    sc.Open();
+                    using (var r = cmd.ExecuteReader())
+                    {
+                        if (r.Read())
+                        {
+                            firstNameTextBox.Text = r["first_name"].ToString();
+                            lastNameTextBox.Text = r["last_name"].ToString();
+                            loginTextBox.Text = r["login"].ToString();
+                            roleComboBox.SelectedValue = r["role_id"];
+                            isEdit = true;
+                            this.changePasswordButton.Visible = true;
+                            // store employee id in Tag for change password
+                            this.Tag = employeeId;
+                            this.changePasswordButton.Click += ChangePasswordButton_Click;
+                        }
+                    }
+                    sc.Close();
+                }
+            }
+            catch { if (sc.State == ConnectionState.Open) sc.Close(); }
+        }
+
+        private void ChangePasswordButton_Click(object sender, EventArgs e)
+        {
+            if (this.Tag == null) return;
+            if (!int.TryParse(this.Tag.ToString(), out int empId)) return;
+            var frm = new ChangePassword(this.sc.ConnectionString, empId);
+            frm.ShowDialog();
+        }
+
+        private void OkButton_Click(object sender, EventArgs e)
+        {
+            // Валидация полей: фамилия, имя, логин обязательны и не должны содержать цифр
+            var errors = new List<string>();
+            if (string.IsNullOrWhiteSpace(lastNameTextBox.Text)) errors.Add("Фамилия обязательна.");
+            if (string.IsNullOrWhiteSpace(firstNameTextBox.Text)) errors.Add("Имя обязательно.");
+            if (string.IsNullOrWhiteSpace(loginTextBox.Text)) errors.Add("Логин обязателен.");
+
+            bool hasDigits = lastNameTextBox.Text.Any(char.IsDigit) || firstNameTextBox.Text.Any(char.IsDigit) || loginTextBox.Text.Any(char.IsDigit);
+            if (hasDigits) errors.Add("Фамилия/Имя/Логин не должны содержать цифр.");
+
+            if (errors.Count > 0)
+            {
+                MessageBox.Show(string.Join("\n", errors), "Ошибка валидации", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            // Сохранение данные: если форма редактирования, обновляем, иначе вставляем
+            try
+            {
+                if (isEdit && this.Tag != null && int.TryParse(this.Tag.ToString(), out int empId))
+                {
+                    using (var cmd = new SQLiteCommand("UPDATE employee SET last_name=@ln, first_name=@fn, patronymic=@pat, login=@login, role_id=@rid WHERE employee_id=@id;", sc))
+                    {
+                        cmd.Parameters.AddWithValue("@ln", lastNameTextBox.Text);
+                        cmd.Parameters.AddWithValue("@fn", firstNameTextBox.Text);
+                        cmd.Parameters.AddWithValue("@pat", patronymicTextBox.Text);
+                        cmd.Parameters.AddWithValue("@login", loginTextBox.Text);
+                        cmd.Parameters.AddWithValue("@rid", roleComboBox.SelectedValue ?? (object)DBNull.Value);
+                        cmd.Parameters.AddWithValue("@id", empId);
+                        sc.Open(); cmd.ExecuteNonQuery(); sc.Close();
+                    }
+                }
+                else
+                {
+                    // вставка нового сотрудника. Пароль задаётся через InsEditGeneric ранее, здесь нет хеширования.
+                    using (var cmd = new SQLiteCommand("INSERT INTO employee (last_name, first_name, patronymic, login, role_id) VALUES (@ln,@fn,@pat,@login,@rid);", sc))
+                    {
+                        cmd.Parameters.AddWithValue("@ln", lastNameTextBox.Text);
+                        cmd.Parameters.AddWithValue("@fn", firstNameTextBox.Text);
+                        cmd.Parameters.AddWithValue("@pat", patronymicTextBox.Text);
+                        cmd.Parameters.AddWithValue("@login", loginTextBox.Text);
+                        cmd.Parameters.AddWithValue("@rid", roleComboBox.SelectedValue ?? (object)DBNull.Value);
+                        sc.Open(); cmd.ExecuteNonQuery(); sc.Close();
+                    }
+                }
+
+                this.DialogResult = DialogResult.OK;
+                this.Close();
+            }
+            catch (Exception ex)
+            {
+                if (sc.State == ConnectionState.Open) sc.Close();
+                MessageBox.Show("Ошибка сохранения: " + ex.Message, "Ошибка", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        private void label1_Click(object sender, EventArgs e)
+        {
+
+        }
+
+        private void label3_Click(object sender, EventArgs e)
+        {
+
+        }
+
+        private void label7_Click(object sender, EventArgs e)
+        {
+
+        }
+
+        private void button1_Click(object sender, EventArgs e)
+        {
+            this.Close();
+        }
+    }
+}

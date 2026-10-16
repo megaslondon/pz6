@@ -1,0 +1,703 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Data;
+using System.Data.SQLite;
+using System.Drawing;
+using System.Linq;
+using pz6.forms.employee;
+using System.Windows.Forms;
+
+namespace pz6.forms
+{
+    [System.ComponentModel.DesignerCategory("Code")]
+    public class InsEditGeneric : Form
+    {
+        private string tableName;
+        private string connString;
+        private int? editId;
+        private string pkName;
+
+        private Panel panel = new Panel();
+        private Button btnSave = new Button();
+        private Button btnCancel = new Button();
+        private TableLayoutPanel layout = new TableLayoutPanel();
+        private FlowLayoutPanel btnPanel;
+        private Button btnChangePassword;
+        private Dictionary<string, Control> inputs = new Dictionary<string, Control>();
+        // метаданные колонок: тип и обязательность
+        private Dictionary<string, string> colTypes = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        private Dictionary<string, bool> colRequired = new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
+        private TextBox pwdBox = null;
+        private TextBox pwdConfirmBox = null;
+        private string fixedForeignKey;
+        private int? fixedForeignKeyId;
+
+        //public InsEditGeneric(string title, string tableName, string connString, int? editId = null)
+        //{
+        //    this.Text = title;
+        //    this.tableName = tableName;
+        //    this.connString = connString;
+        //    this.editId = editId;
+        //    InitializeComponent();
+        //    this.Load += InsEditGeneric_Load;
+        //    btnCancel.Click += (s, e) => this.Close();
+        //}
+
+        public InsEditGeneric(string title, string tableName, string connString, int? editId = null, string fixedForeignKey = null, int? fixedForeignKeyId = null)
+        {
+            this.Text = title;
+            this.tableName = tableName;
+            this.connString = connString;
+            this.editId = editId;
+            this.fixedForeignKey = fixedForeignKey;
+            this.fixedForeignKeyId = fixedForeignKeyId;
+
+            InitializeComponent(); // Сначала инициализируем компоненты
+
+            this.Load += InsEditGeneric_Load;
+        }
+
+
+        private void InitializeComponent()
+        {
+            this.ClientSize = new Size(440, 260);
+            this.MinimumSize = new Size(400, 0);
+            layout.Dock = DockStyle.Top;
+            layout.AutoSize = true;
+            layout.ColumnCount = 2;
+            layout.RowCount = 0;
+            panel.Dock = DockStyle.Fill;
+            panel.AutoScroll = true;
+            panel.Controls.Add(layout);
+
+            btnSave.Text = "Сохранить";
+            btnCancel.Text = "Отмена";
+            btnSave.Anchor = AnchorStyles.Right;
+            btnCancel.Anchor = AnchorStyles.Right;
+            btnSave.Click += BtnSave_Click;
+            btnCancel.Click += (s, e) => this.Close();
+
+            this.btnPanel = new FlowLayoutPanel();
+            this.btnPanel.Dock = DockStyle.Bottom;
+            this.btnPanel.AutoSize = true;
+            this.btnPanel.AutoSizeMode = AutoSizeMode.GrowAndShrink;
+            this.btnPanel.FlowDirection = FlowDirection.RightToLeft;
+            this.btnPanel.Padding = new Padding(6);
+            // change password button (visible only for employee edit)
+            this.btnChangePassword = new Button() { Text = "Сменить пароль", Visible = false, Anchor = AnchorStyles.Right };
+            this.btnPanel.Controls.Add(this.btnSave);
+            this.btnPanel.Controls.Add(this.btnCancel);
+            this.btnPanel.Controls.Add(this.btnChangePassword);
+
+            this.Controls.Add(panel);
+            this.Controls.Add(this.btnPanel);
+        }
+
+        private void InsEditGeneric_Load(object sender, EventArgs e)
+        {
+            // avoid executing runtime DB code in design-time (Visual Studio designer)
+            if (System.ComponentModel.LicenseManager.UsageMode == System.ComponentModel.LicenseUsageMode.Designtime) return;
+            BuildFormFromSchema();
+            if (editId.HasValue)
+            {
+                LoadExistingData();
+            }
+            // show change password for employee when editing
+            if (string.Equals(tableName, "employee", StringComparison.OrdinalIgnoreCase) && editId.HasValue)
+            {
+                try
+                {
+                    btnChangePassword.Visible = true;
+                    btnChangePassword.Click += (s2, ev) =>
+                    {
+                        using (var f = new pz6.forms.employee.ChangePassword(connString, editId.Value))
+                        {
+                            f.ShowDialog();
+                        }
+                    };
+                }
+                catch { }
+
+            }
+        }
+
+        private void BuildFormFromSchema()
+        {
+            using (var sc = new SQLiteConnection(connString))
+            using (var cmd = new SQLiteCommand($"PRAGMA table_info({tableName});", sc))
+            {
+                sc.Open();
+                int row = 0;
+                using (var r = cmd.ExecuteReader())
+                {
+                    while (r.Read())
+                    {
+                        string colName = r[1].ToString();
+                        string colType = r[2].ToString();
+                        int pk = Convert.ToInt32(r[5]);
+                        int notnull = Convert.ToInt32(r[3]);
+                        if (!colName.Equals("password_hash", StringComparison.OrdinalIgnoreCase))
+                        {
+                            colTypes[colName] = colType;
+                            colRequired[colName] = (notnull == 1);
+                        }
+
+                        // не редактируем и не показываем поле пароля (изменяется через отдельную форму)
+                        if (colName.Equals("password_hash", StringComparison.OrdinalIgnoreCase))
+                        {
+                            // password handled separately for employee creation (add password fields)
+                            // skip adding DB column control here
+                            continue;
+                        }
+                        if (pk == 1) pkName = colName;
+
+                        // пропускаем PK при добавлении (автоинкремент)
+                        if (pk == 1 && !editId.HasValue)
+                        {
+                            continue;
+                        }
+
+                        var lbl = new Label() { Text = TranslateColumn(colName), AutoSize = true, Anchor = AnchorStyles.Left };
+
+                        Control inputControl = null;
+
+                        // Для полей даты используем DateTimePicker (распознаём по типу или по имени столбца)
+                        if (IsDateType(colType) || colName.IndexOf("date", StringComparison.OrdinalIgnoreCase) >= 0)
+                        {
+                            var dtp = new DateTimePicker() { Width = 300, Format = DateTimePickerFormat.Custom, CustomFormat = "yyyy-MM-dd", MaxDate = DateTime.Today, Anchor = AnchorStyles.Left | AnchorStyles.Right };
+                            inputControl = dtp;
+                        }
+                        else if (colName.EndsWith("_id", StringComparison.OrdinalIgnoreCase))
+                        {
+                            // Попытка подгрузить справочник из таблицы по имени (без _id)
+                            string refTable = colName.Substring(0, colName.Length - 3);
+                            string refPk = GetPrimaryKeyForTable(refTable);
+                            string displayCol = GetDisplayColumnForTable(refTable);
+                            if (!string.IsNullOrEmpty(refPk) && !string.IsNullOrEmpty(displayCol))
+                            {
+                                var cb = new ComboBox() { Width = 300, DropDownStyle = ComboBoxStyle.DropDownList, Anchor = AnchorStyles.Left | AnchorStyles.Right };
+                                var dt = new DataTable();
+                                using (var cmdRef = new SQLiteCommand($"SELECT {refPk} AS id, {displayCol} AS display FROM {refTable};", sc))
+                                using (var da = new SQLiteDataAdapter(cmdRef))
+                                {
+                                    da.Fill(dt);
+                                }
+                                cb.DisplayMember = "display";
+                                cb.ValueMember = "id";
+                                cb.DataSource = dt;
+                        if (!editId.HasValue && fixedForeignKeyId.HasValue && colName.Equals(fixedForeignKey, StringComparison.OrdinalIgnoreCase))
+                        {
+                            cb.SelectedValue = fixedForeignKeyId.Value;
+                            cb.Enabled = false;
+                        }
+                                inputControl = cb;
+                            }
+                            else
+                            {
+                                inputControl = new TextBox() { Width = 300, Anchor = AnchorStyles.Left | AnchorStyles.Right };
+                            }
+                        }
+                        else
+                        {
+                            var tb = new TextBox() { Width = 300, Anchor = AnchorStyles.Left | AnchorStyles.Right };
+                            // запретить ввод цифр для полей Фамилия/Имя/Отчество
+                            if (colName.Equals("last_name", StringComparison.OrdinalIgnoreCase) || colName.Equals("first_name", StringComparison.OrdinalIgnoreCase) || colName.Equals("patronymic", StringComparison.OrdinalIgnoreCase))
+                            {
+                                tb.KeyPress += TextBox_NoDigits_KeyPress;
+                            }
+                            else if (IsNumericType(colType))
+                            {
+                                tb.Tag = colName;
+                                tb.KeyPress += NumericTextBox_KeyPress;
+                            }
+                            inputControl = tb;
+                        }
+
+                        layout.RowCount = layout.RowCount + 1;
+                        layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+                        layout.Controls.Add(lbl, 0, row);
+                        layout.Controls.Add(inputControl, 1, row);
+                        inputs[colName] = inputControl;
+                        if (string.Equals(tableName, "employee", StringComparison.OrdinalIgnoreCase) && colName.Equals("login", StringComparison.OrdinalIgnoreCase))
+                        {
+                            var loginBox = inputControl as TextBox;
+                            if (loginBox != null) loginBox.KeyPress += Login_KeyPress;
+                        }
+                        row++;
+                    }
+                }
+                // Если добавляем сотрудника — добавить поля пароль и подтверждение
+                if (string.Equals(tableName, "employee", StringComparison.OrdinalIgnoreCase) && !editId.HasValue)
+                {
+                    var lblPwd = new Label() { Text = "Пароль", AutoSize = true, Anchor = AnchorStyles.Left };
+                    pwdBox = new TextBox() { Width = 300, Anchor = AnchorStyles.Left | AnchorStyles.Right, UseSystemPasswordChar = true };
+                    layout.RowCount = layout.RowCount + 1;
+                    layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+                    layout.Controls.Add(lblPwd, 0, row);
+                    layout.Controls.Add(pwdBox, 1, row);
+                    row++;
+
+                    var lblPwdConf = new Label() { Text = "Подтвердите пароль", AutoSize = true, Anchor = AnchorStyles.Left };
+                    pwdConfirmBox = new TextBox() { Width = 300, Anchor = AnchorStyles.Left | AnchorStyles.Right, UseSystemPasswordChar = true };
+                    layout.RowCount = layout.RowCount + 1;
+                    layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+                    layout.Controls.Add(lblPwdConf, 0, row);
+                    layout.Controls.Add(pwdConfirmBox, 1, row);
+                    // не добавляем подтверждение в inputs (нет соответствующего столбца)
+                    row++;
+                }
+                sc.Close();
+            }
+            FitFormToContent();
+        }
+
+        private void FitFormToContent()
+        {
+            var workArea = Screen.FromControl(this).WorkingArea;
+            var preferredLayoutHeight = layout.GetPreferredSize(new Size(layout.Width > 0 ? layout.Width : 420, 0)).Height;
+            var preferredHeight = preferredLayoutHeight + btnPanel.GetPreferredSize(Size.Empty).Height + 8;
+            var maxHeight = Math.Max(1, workArea.Height - 40);
+            ClientSize = new Size(ClientSize.Width, Math.Min(preferredHeight, maxHeight));
+        }
+
+        private void LoadExistingData()
+        {
+            if (!editId.HasValue || string.IsNullOrEmpty(pkName)) return;
+            using (var sc = new SQLiteConnection(connString))
+            using (var cmd = new SQLiteCommand($"SELECT * FROM {tableName} WHERE {pkName} = @id LIMIT 1;", sc))
+            {
+                cmd.Parameters.AddWithValue("@id", editId.Value);
+                sc.Open();
+                using (var r = cmd.ExecuteReader())
+                {
+                    if (r.Read())
+                    {
+                        foreach (var k in inputs.Keys.ToList())
+                        {
+                            if (!ColumnExists(r, k)) continue;
+                            var val = r[k];
+                            var ctrl = inputs[k];
+                            if (ctrl is ComboBox cb)
+                            {
+                                if (val == DBNull.Value) cb.SelectedIndex = -1;
+                                else cb.SelectedValue = val;
+                            }
+                            else if (ctrl is TextBox tb)
+                            {
+                                tb.Text = val == DBNull.Value ? string.Empty : val.ToString();
+                            }
+                        }
+                    }
+                }
+                sc.Close();
+            }
+        }
+
+        private bool ColumnExists(IDataRecord r, string name)
+        {
+            try { return r.GetOrdinal(name) >= 0; } catch { return false; }
+        }
+
+        private void BtnSave_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                // валидация полей перед сохранением
+                var errors = new List<string>();
+                foreach (var kv in inputs)
+                {
+                    var col = kv.Key;
+                    var ctrl = kv.Value;
+                    // обязательные поля
+                    if (colRequired.ContainsKey(col) && colRequired[col])
+                    {
+                        if (ctrl is TextBox tb && string.IsNullOrWhiteSpace(tb.Text)) errors.Add(TranslateColumn(col) + " обязательное поле.");
+                        else if (ctrl is ComboBox cb && (cb.SelectedValue == null || cb.SelectedIndex < 0)) errors.Add(TranslateColumn(col) + " обязательное поле.");
+                        else if (ctrl is DateTimePicker) { /* всегда имеет значение */ }
+                    }
+
+                    // типовые проверки
+                    if (ctrl is DateTimePicker dtp && dtp.Value.Date > DateTime.Today)
+                    {
+                        errors.Add(TranslateColumn(col) + " не может быть в будущем.");
+                    }
+                    if (colTypes.ContainsKey(col) && IsIntegerType(colTypes[col]))
+                    {
+                        if (ctrl is TextBox tb && !string.IsNullOrWhiteSpace(tb.Text))
+                        {
+                            if (!int.TryParse(tb.Text, out _)) errors.Add(TranslateColumn(col) + " должно быть целым числом.");
+                        }
+                // Проверяем ФИО при вставке/вставке через буфер обмена в обход KeyPress.
+                foreach (var nameColumn in new[] { "last_name", "first_name", "patronymic" })
+                {
+                    if (inputs.ContainsKey(nameColumn) && inputs[nameColumn] is TextBox nameBox && nameBox.Text.Any(char.IsDigit))
+                    {
+                        MessageBox.Show(TranslateColumn(nameColumn) + " не должно содержать цифры.", "Ошибка валидации", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        nameBox.Focus();
+                        return;
+                    }
+                }
+                        if (ctrl is ComboBox cb && cb.SelectedValue != null)
+                        {
+                            // проверка значения на int
+                            if (!int.TryParse(cb.SelectedValue.ToString(), out _)) errors.Add(TranslateColumn(col) + " содержит некорректный идентификатор.");
+                        }
+                    }
+                }
+                if (string.Equals(tableName, "delivery_item", StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(tableName, "delivery_product", StringComparison.OrdinalIgnoreCase))
+                {
+                    if (fixedForeignKeyId.HasValue && fixedForeignKey.Equals("delivery_id", StringComparison.OrdinalIgnoreCase) &&
+                        inputs.ContainsKey("quantity") && GetPositiveQuantity(inputs["quantity"]) == null)
+                    {
+                        errors.Add("Количество должно быть положительным числом.");
+                    }
+                }
+                if (string.Equals(fixedForeignKey, "order_id", StringComparison.OrdinalIgnoreCase) && inputs.ContainsKey("quantity"))
+                {
+                    var orderQuantity = GetPositiveQuantity(inputs["quantity"]);
+                    if (orderQuantity == null) errors.Add("Количество должно быть положительным числом.");
+                    else if (fixedForeignKeyId.HasValue && inputs.ContainsKey("product_id"))
+                    {
+                        int productId;
+                        if (!int.TryParse(GetControlValue(inputs["product_id"]) == null ? null : GetControlValue(inputs["product_id"]).ToString(), out productId))
+                        {
+                            errors.Add("Не выбран товар.");
+                        }
+                        else
+                        {
+                            var available = GetAvailableQuantity(productId);
+                            if (orderQuantity.Value > available)
+                            {
+                                errors.Add("Невозможно заказать такое количество товара. Доступно: " + available + ".");
+                            }
+                        }
+                    }
+                }
+                if (errors.Count > 0)
+                {
+                    MessageBox.Show(string.Join("\n", errors), "Ошибка валидации", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+                // специальная валидация пароля для создания сотрудника
+                if (string.Equals(tableName, "employee", StringComparison.OrdinalIgnoreCase) && !editId.HasValue)
+                {
+                    if (pwdBox == null || pwdConfirmBox == null)
+                    {
+                        MessageBox.Show("Поля для пароля отсутствуют.", "Ошибка", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        return;
+                    }
+                    var p1 = pwdBox.Text ?? string.Empty;
+                    var p2 = pwdConfirmBox.Text ?? string.Empty;
+                    if (string.IsNullOrWhiteSpace(p1))
+                    {
+                        MessageBox.Show("Пароль обязателен для нового сотрудника.", "Ошибка валидации", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        return;
+                    }
+                    if (p1 != p2)
+                    {
+                        MessageBox.Show("Пароли не совпадают.", "Ошибка валидации", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        return;
+                    }
+                }
+                using (var sc = new SQLiteConnection(connString))
+                using (var cmd = new SQLiteCommand())
+                {
+                    cmd.Connection = sc;
+                    if (editId.HasValue)
+                    {
+                        var sets = new List<string>();
+                        foreach (var kv in inputs)
+                        {
+                            sets.Add($"{kv.Key} = @{kv.Key}");
+                            object val = GetControlValue(kv.Value);
+                            cmd.Parameters.AddWithValue("@" + kv.Key, val ?? (object)DBNull.Value);
+                        }
+                        cmd.CommandText = $"UPDATE {tableName} SET {string.Join(", ", sets)} WHERE {pkName} = @id;";
+                        cmd.Parameters.AddWithValue("@id", editId.Value);
+                    }
+                    else
+                    {
+                        var cols = new List<string>();
+                        var pars = new List<string>();
+                        foreach (var kv in inputs)
+                        {
+                            cols.Add(kv.Key);
+                            pars.Add("@" + kv.Key);
+                            object val = kv.Key.Equals(fixedForeignKey, StringComparison.OrdinalIgnoreCase) && fixedForeignKeyId.HasValue
+                                ? (object)fixedForeignKeyId.Value
+                                : GetControlValue(kv.Value);
+                            cmd.Parameters.AddWithValue("@" + kv.Key, val ?? (object)DBNull.Value);
+                        }
+
+                        if (!editId.HasValue && !string.IsNullOrEmpty(fixedForeignKey) && fixedForeignKeyId.HasValue)
+                        {
+                            if (!cols.Contains(fixedForeignKey, StringComparer.OrdinalIgnoreCase))
+                            {
+                                cols.Add(fixedForeignKey);
+                                pars.Add("@fixed_parent_id");
+                                cmd.Parameters.AddWithValue("@fixed_parent_id", fixedForeignKeyId.Value);
+                            }
+                            else
+                            {
+                                cmd.Parameters["@" + fixedForeignKey].Value = fixedForeignKeyId.Value;
+                            }
+                        }
+                        if (string.Equals(tableName, "employee", StringComparison.OrdinalIgnoreCase))
+                        {
+                            cols.Add("password_hash");
+                            pars.Add("@password_hash");
+                            cmd.Parameters.AddWithValue("@password_hash", GetControlValue(pwdBox));
+                        }
+                        cmd.CommandText = $"INSERT INTO {tableName} ({string.Join(", ", cols)}) VALUES ({string.Join(", ", pars)});";
+                    }
+
+                    sc.Open();
+                    cmd.ExecuteNonQuery();
+                    sc.Close();
+                }
+                this.DialogResult = DialogResult.OK;
+                this.Close();
+            }
+            catch (SQLiteException ex)
+            {
+                MessageBox.Show(GetConstraintWarning(ex), "Предупреждение", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("Ошибка сохранения: " + ex.Message, "Ошибка", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        private string GetConstraintWarning(SQLiteException ex)
+        {
+            var message = ex.Message ?? string.Empty;
+            var lower = message.ToLowerInvariant();
+            if (lower.Contains("unique constraint") || lower.Contains("constraint failed"))
+            {
+                if (lower.Contains("delivery_item") && lower.Contains("product_id"))
+                    return "Такая позиция товара уже добавлена в выбранную поставку.";
+                if (lower.Contains("order") && lower.Contains("product_id"))
+                    return "Такая позиция товара уже добавлена в выбранный заказ.";
+                return "Такая запись уже существует. Проверьте введённые данные.";
+            }
+            if (lower.Contains("not null"))
+                return "Не заполнено обязательное поле. Проверьте данные и повторите попытку.";
+            if (lower.Contains("foreign key"))
+                return "Нельзя сохранить запись: связанная запись не найдена или используется в другой записи.";
+            return "Не удалось сохранить запись из-за ограничения базы данных. Проверьте введённые данные.";
+        }
+
+        private object GetControlValue(Control ctrl)
+        {
+            if (ctrl is ComboBox cb)
+            {
+                return cb.SelectedValue;
+            }
+            if (ctrl is TextBox tb)
+            {
+                // If this is the password field, hash it before returning
+                if (tb == pwdBox)
+                {
+                    var txt = tb.Text ?? string.Empty;
+                    using (var sha = System.Security.Cryptography.SHA256.Create())
+                    {
+                        var bytes = System.Text.Encoding.UTF8.GetBytes(txt);
+                        var hash = sha.ComputeHash(bytes);
+                        return BitConverter.ToString(hash).Replace("-", "").ToLower();
+                    }
+                }
+                return string.IsNullOrEmpty(tb.Text) ? null : (object)tb.Text;
+            }
+            if (ctrl is DateTimePicker dtp)
+            {
+                return dtp.Value.Date.ToString("yyyy-MM-dd");
+            }
+            return null;
+        }
+
+        private decimal? GetPositiveQuantity(Control ctrl)
+        {
+            decimal value;
+            if (ctrl is TextBox tb && decimal.TryParse(tb.Text, out value) && value > 0) return value;
+            return null;
+        }
+
+        private decimal GetAvailableQuantity(int productId)
+        {
+            var deliveryTable = FindTableWithColumns("delivery_id", "product_id", "quantity");
+            var orderTable = FindTableWithColumns("order_id", "product_id", "quantity");
+            decimal supplied = 0;
+            decimal ordered = 0;
+            using (var sc = new SQLiteConnection(connString))
+            {
+                sc.Open();
+                if (!string.IsNullOrEmpty(deliveryTable))
+                {
+                    using (var cmd = new SQLiteCommand("SELECT COALESCE(SUM(quantity), 0) FROM [" + deliveryTable + "] WHERE product_id = @product;", sc))
+                    {
+                        cmd.Parameters.AddWithValue("@product", productId);
+                        supplied = Convert.ToDecimal(cmd.ExecuteScalar());
+                    }
+                }
+                if (!string.IsNullOrEmpty(orderTable))
+                {
+                    using (var cmd = new SQLiteCommand("SELECT COALESCE(SUM(quantity), 0) FROM [" + orderTable + "] WHERE product_id = @product;", sc))
+                    {
+                        cmd.Parameters.AddWithValue("@product", productId);
+                        ordered = Convert.ToDecimal(cmd.ExecuteScalar());
+                    }
+                }
+            }
+            return supplied - ordered;
+        }
+
+        private string FindTableWithColumns(string parentColumn, string productColumn, string quantityColumn)
+        {
+            using (var sc = new SQLiteConnection(connString))
+            {
+                sc.Open();
+                var tables = new List<string>();
+                using (var cmd = new SQLiteCommand("SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%';", sc))
+                using (var reader = cmd.ExecuteReader())
+                {
+                    while (reader.Read()) tables.Add(reader[0].ToString());
+                }
+                foreach (var table in tables)
+                {
+                    var columns = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                    using (var cmd = new SQLiteCommand("PRAGMA table_info([" + table.Replace("]", "]]" ) + "]);", sc))
+                    using (var reader = cmd.ExecuteReader())
+                    {
+                        while (reader.Read()) columns.Add(reader[1].ToString());
+                    }
+                    if (columns.Contains(parentColumn) && columns.Contains(productColumn) && columns.Contains(quantityColumn))
+                        return table;
+                }
+            }
+            return null;
+        }
+
+        private bool IsDateType(string type)
+        {
+            if (string.IsNullOrEmpty(type)) return false;
+            var t = type.ToUpper();
+            return t.Contains("DATE") || t.Contains("TIME") || t.Contains("DATETIME");
+        }
+
+        private void TextBox_NoDigits_KeyPress(object sender, KeyPressEventArgs e)
+        {
+            if (char.IsControl(e.KeyChar) || char.IsLetter(e.KeyChar) || e.KeyChar == ' ' || e.KeyChar == '-' || e.KeyChar == '\'') return;
+            e.Handled = true;
+        }
+
+        private void NumericTextBox_KeyPress(object sender, KeyPressEventArgs e)
+        {
+            if (char.IsControl(e.KeyChar) || char.IsDigit(e.KeyChar)) return;
+
+            var textBox = sender as TextBox;
+            var columnName = textBox == null || textBox.Tag == null ? null : textBox.Tag.ToString();
+            var isInteger = !string.IsNullOrEmpty(columnName) && colTypes.ContainsKey(columnName) && IsIntegerType(colTypes[columnName]);
+            if (!isInteger && (e.KeyChar == '.' || e.KeyChar == ',') && textBox != null &&
+                !textBox.Text.Contains(".") && !textBox.Text.Contains(",")) return;
+
+            e.Handled = true;
+        }
+
+        private bool IsNumericType(string type)
+        {
+            if (string.IsNullOrEmpty(type)) return false;
+            var normalized = type.ToUpperInvariant();
+            return normalized.Contains("INT") || normalized.Contains("REAL") ||
+                   normalized.Contains("FLOA") || normalized.Contains("DOUB") ||
+                   normalized.Contains("DECIMAL") || normalized.Contains("NUMERIC");
+        }
+
+        private void Login_KeyPress(object sender, KeyPressEventArgs e)
+        {
+            if (char.IsControl(e.KeyChar) || char.IsLetterOrDigit(e.KeyChar) || e.KeyChar == '_' || e.KeyChar == '-' || e.KeyChar == '.') return;
+            e.Handled = true;
+        }
+
+        private string GetPrimaryKeyForTable(string table)
+        {
+            try
+            {
+                using (var sc = new SQLiteConnection(connString))
+                using (var cmd = new SQLiteCommand($"PRAGMA table_info({table});", sc))
+                {
+                    sc.Open();
+                    using (var r = cmd.ExecuteReader())
+                    {
+                        while (r.Read())
+                        {
+                            int pk = Convert.ToInt32(r[5]);
+                            if (pk == 1) return r[1].ToString();
+                        }
+                    }
+                    sc.Close();
+                }
+            }
+            catch { if (/*sc!=null &&*/ false) { } }
+            return null;
+        }
+
+        private string GetDisplayColumnForTable(string table)
+        {
+            // Предпочтительно "name", иначе первая TEXT колонка
+            try
+            {
+                using (var sc = new SQLiteConnection(connString))
+                using (var cmd = new SQLiteCommand($"PRAGMA table_info({table});", sc))
+                {
+                    sc.Open();
+                    string firstText = null;
+                    using (var r = cmd.ExecuteReader())
+                    {
+                        while (r.Read())
+                        {
+                            string col = r[1].ToString();
+                            string type = r[2].ToString().ToUpper();
+                            if (col.Equals("name", StringComparison.OrdinalIgnoreCase))
+                            {
+                                sc.Close();
+                                return col;
+                            }
+                            if ((type.Contains("CHAR") || type.Contains("TEXT") || type.Contains("CLOB")) && firstText == null)
+                            {
+                                firstText = col;
+                            }
+                        }
+                    }
+                    sc.Close();
+                    return firstText;
+                }
+            }
+            catch { }
+            return null;
+        }
+
+        private bool IsIntegerType(string type)
+        {
+            if (string.IsNullOrEmpty(type)) return false;
+            var t = type.ToUpper();
+            return t.Contains("INT");
+        }
+
+        private string TranslateColumn(string col)
+        {
+            var map = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            {
+                {"name","Название"}, {"phone","Телефон"}, {"email","Электронная почта"}, {"last_name","Фамилия"}, {"first_name","Имя"}, {"patronymic","Отчество"}, {"login","Логин"}, {"delivery_date","Дата поставки"}, {"order_date","Дата заказа"}, {"city","Город"}, {"street","Улица"}, {"house_number","Номер дома"}, {"apartment","Квартира"}, {"building","Корпус"}, {"quantity","Количество"}, {"price","Цена"}, {"article","Артикул"}, {"product_type","Тип товара"}, {"sale_price","Цена продажи"}
+            };
+            // дополнительные соответствия для FK
+            var fkMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            {
+                {"warehouse_id","Склад"}, {"supplier_id","Поставщик"}, {"client_id","Клиент"}, {"employee_id","Сотрудник"}, {"status_id","Статус"}, {"product_id","Товар"}, {"role_id","Роль"}
+            };
+            if (fkMap.ContainsKey(col)) return fkMap[col];
+            if (map.ContainsKey(col)) return map[col];
+            return col;
+        }
+    }
+}

@@ -1,0 +1,351 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Data;
+using System.Data.SQLite;
+using System.Drawing;
+using System.Linq;
+using System.Windows.Forms;
+
+namespace pz6.forms
+{
+    [System.ComponentModel.DesignerCategory("Code")]
+    public class InsEditGeneric : Form
+    {
+        private string tableName;
+        private string connString;
+        private int? editId;
+        private string pkName;
+
+        private Panel panel = new Panel();
+        private Button btnSave = new Button();
+        private Button btnCancel = new Button();
+        private TableLayoutPanel layout = new TableLayoutPanel();
+        private Dictionary<string, Control> inputs = new Dictionary<string, Control>();
+        // метаданные колонок: тип и обязательность
+        private Dictionary<string, string> colTypes = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        private Dictionary<string, bool> colRequired = new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
+
+        //public InsEditGeneric(string title, string tableName, string connString, int? editId = null)
+        //{
+        //    this.Text = title;
+        //    this.tableName = tableName;
+        //    this.connString = connString;
+        //    this.editId = editId;
+        //    InitializeComponent();
+        //    this.Load += InsEditGeneric_Load;
+        //    btnCancel.Click += (s, e) => this.Close();
+        //}
+
+        public InsEditGeneric(string title, string tableName, string connString, int? editId = null)
+        {
+            this.Text = title;
+            this.tableName = tableName;
+            this.connString = connString;
+            this.editId = editId;
+
+            InitializeComponent(); // Сначала инициализируем компоненты
+
+            this.Load += InsEditGeneric_Load;
+        }
+
+        private void InitializeComponent()
+        {
+            this.ClientSize = new Size(480, 320);
+            layout.Dock = DockStyle.Top;
+            layout.AutoSize = true;
+            layout.ColumnCount = 2;
+            layout.RowCount = 0;
+            panel.Dock = DockStyle.Fill;
+            panel.AutoScroll = true;
+            panel.Controls.Add(layout);
+
+            btnSave.Text = "Сохранить";
+            btnCancel.Text = "Отмена";
+            btnSave.Anchor = AnchorStyles.Right;
+            btnCancel.Anchor = AnchorStyles.Right;
+            btnSave.Click += BtnSave_Click;
+            btnCancel.Click += (s, e) => this.Close();
+
+            var btnPanel = new FlowLayoutPanel();
+            btnPanel.Dock = DockStyle.Bottom;
+            btnPanel.FlowDirection = FlowDirection.RightToLeft;
+            btnPanel.Padding = new Padding(6);
+            btnPanel.Controls.Add(btnSave);
+            btnPanel.Controls.Add(btnCancel);
+
+            this.Controls.Add(panel);
+            this.Controls.Add(btnPanel);
+        }
+
+        private void InsEditGeneric_Load(object sender, EventArgs e)
+        {
+            // avoid executing runtime DB code in design-time (Visual Studio designer)
+            if (System.ComponentModel.LicenseManager.UsageMode == System.ComponentModel.LicenseUsageMode.Designtime) return;
+            BuildFormFromSchema();
+            if (editId.HasValue)
+            {
+                LoadExistingData();
+            }
+        }
+
+        private void BuildFormFromSchema()
+        {
+            using (var sc = new SQLiteConnection(connString))
+            using (var cmd = new SQLiteCommand($"PRAGMA table_info({tableName});", sc))
+            {
+                sc.Open();
+                using (var r = cmd.ExecuteReader())
+                {
+                    int row = 0;
+                    while (r.Read())
+                    {
+                        string colName = r[1].ToString();
+                        string colType = r[2].ToString();
+                        int pk = Convert.ToInt32(r[5]);
+                        int notnull = Convert.ToInt32(r[3]);
+                        colTypes[colName] = colType;
+                        colRequired[colName] = (notnull == 1);
+
+                        // не редактируем и не показываем поле пароля (изменяется через отдельную форму)
+                        if (colName.Equals("password_hash", StringComparison.OrdinalIgnoreCase)) continue;
+                        if (pk == 1) pkName = colName;
+
+                        // пропускаем PK при добавлении (автоинкремент)
+                        if (pk == 1 && !editId.HasValue)
+                        {
+                            continue;
+                        }
+
+                        var lbl = new Label() { Text = TranslateColumn(colName), AutoSize = true, Anchor = AnchorStyles.Left };
+
+                        Control inputControl = null;
+
+                        // Для полей даты используем DateTimePicker
+                        if (IsDateType(colType))
+                        {
+                            var dtp = new DateTimePicker() { Width = 300, Format = DateTimePickerFormat.Short, Anchor = AnchorStyles.Left | AnchorStyles.Right };
+                            inputControl = dtp;
+                        }
+                        else if (colName.EndsWith("_id", StringComparison.OrdinalIgnoreCase))
+                        {
+                            // Попытка подгрузить справочник из таблицы по имени (без _id)
+                            string refTable = colName.Substring(0, colName.Length - 3);
+                            string refPk = GetPrimaryKeyForTable(refTable);
+                            string displayCol = GetDisplayColumnForTable(refTable);
+                            if (!string.IsNullOrEmpty(refPk) && !string.IsNullOrEmpty(displayCol))
+                            {
+                                var cb = new ComboBox() { Width = 300, DropDownStyle = ComboBoxStyle.DropDownList, Anchor = AnchorStyles.Left | AnchorStyles.Right };
+                                var dt = new DataTable();
+                                using (var cmdRef = new SQLiteCommand($"SELECT {refPk} AS id, {displayCol} AS display FROM {refTable};", sc))
+                                using (var da = new SQLiteDataAdapter(cmdRef))
+                                {
+                                    da.Fill(dt);
+                                }
+                                cb.DisplayMember = "display";
+                                cb.ValueMember = "id";
+                                cb.DataSource = dt;
+                                inputControl = cb;
+                            }
+                            else
+                            {
+                                // fallback to textbox
+                                inputControl = new TextBox() { Width = 300, Anchor = AnchorStyles.Left | AnchorStyles.Right };
+                            }
+                        }
+                        else
+                        {
+                            inputControl = new TextBox() { Width = 300, Anchor = AnchorStyles.Left | AnchorStyles.Right };
+                        }
+
+                        layout.RowCount = layout.RowCount + 1;
+                        layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+                        layout.Controls.Add(lbl, 0, row);
+                        layout.Controls.Add(inputControl, 1, row);
+                        inputs[colName] = inputControl;
+                        row++;
+                    }
+                }
+                sc.Close();
+            }
+        }
+
+        private void LoadExistingData()
+        {
+            if (!editId.HasValue || string.IsNullOrEmpty(pkName)) return;
+            using (var sc = new SQLiteConnection(connString))
+            using (var cmd = new SQLiteCommand($"SELECT * FROM {tableName} WHERE {pkName} = @id LIMIT 1;", sc))
+            {
+                cmd.Parameters.AddWithValue("@id", editId.Value);
+                sc.Open();
+                using (var r = cmd.ExecuteReader())
+                {
+                    if (r.Read())
+                    {
+                        foreach (var k in inputs.Keys.ToList())
+                        {
+                            if (!ColumnExists(r, k)) continue;
+                            var val = r[k];
+                            var ctrl = inputs[k];
+                            if (ctrl is ComboBox cb)
+                            {
+                                if (val == DBNull.Value) cb.SelectedIndex = -1;
+                                else cb.SelectedValue = val;
+                            }
+                            else if (ctrl is TextBox tb)
+                            {
+                                tb.Text = val == DBNull.Value ? string.Empty : val.ToString();
+                            }
+                        }
+                    }
+                }
+                sc.Close();
+            }
+        }
+
+        private bool ColumnExists(IDataRecord r, string name)
+        {
+            try { return r.GetOrdinal(name) >= 0; } catch { return false; }
+        }
+
+        private void BtnSave_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                using (var sc = new SQLiteConnection(connString))
+                using (var cmd = new SQLiteCommand())
+                {
+                    cmd.Connection = sc;
+                    if (editId.HasValue)
+                    {
+                        var sets = new List<string>();
+                        foreach (var kv in inputs)
+                        {
+                            sets.Add($"{kv.Key} = @{kv.Key}");
+                            object val = GetControlValue(kv.Value);
+                            cmd.Parameters.AddWithValue("@" + kv.Key, val ?? (object)DBNull.Value);
+                        }
+                        cmd.CommandText = $"UPDATE {tableName} SET {string.Join(", ", sets)} WHERE {pkName} = @id;";
+                        cmd.Parameters.AddWithValue("@id", editId.Value);
+                    }
+                    else
+                    {
+                        var cols = new List<string>();
+                        var pars = new List<string>();
+                        foreach (var kv in inputs)
+                        {
+                            cols.Add(kv.Key);
+                            pars.Add("@" + kv.Key);
+                            object val = GetControlValue(kv.Value);
+                            cmd.Parameters.AddWithValue("@" + kv.Key, val ?? (object)DBNull.Value);
+                        }
+                        cmd.CommandText = $"INSERT INTO {tableName} ({string.Join(", ", cols)}) VALUES ({string.Join(", ", pars)});";
+                    }
+
+                    sc.Open();
+                    cmd.ExecuteNonQuery();
+                    sc.Close();
+                }
+                this.DialogResult = DialogResult.OK;
+                this.Close();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("Ошибка сохранения: " + ex.Message, "Ошибка", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        private object GetControlValue(Control ctrl)
+        {
+            if (ctrl is ComboBox cb)
+            {
+                return cb.SelectedValue;
+            }
+            if (ctrl is TextBox tb)
+            {
+                return string.IsNullOrEmpty(tb.Text) ? null : (object)tb.Text;
+            }
+            return null;
+        }
+
+        private string GetPrimaryKeyForTable(string table)
+        {
+            try
+            {
+                using (var sc = new SQLiteConnection(connString))
+                using (var cmd = new SQLiteCommand($"PRAGMA table_info({table});", sc))
+                {
+                    sc.Open();
+                    using (var r = cmd.ExecuteReader())
+                    {
+                        while (r.Read())
+                        {
+                            int pk = Convert.ToInt32(r[5]);
+                            if (pk == 1) return r[1].ToString();
+                        }
+                    }
+                    sc.Close();
+                }
+            }
+            catch { if (/*sc!=null &&*/ false) { } }
+            return null;
+        }
+
+        private string GetDisplayColumnForTable(string table)
+        {
+            // Предпочтительно "name", иначе первая TEXT колонка
+            try
+            {
+                using (var sc = new SQLiteConnection(connString))
+                using (var cmd = new SQLiteCommand($"PRAGMA table_info({table});", sc))
+                {
+                    sc.Open();
+                    string firstText = null;
+                    using (var r = cmd.ExecuteReader())
+                    {
+                        while (r.Read())
+                        {
+                            string col = r[1].ToString();
+                            string type = r[2].ToString().ToUpper();
+                            if (col.Equals("name", StringComparison.OrdinalIgnoreCase))
+                            {
+                                sc.Close();
+                                return col;
+                            }
+                            if ((type.Contains("CHAR") || type.Contains("TEXT") || type.Contains("CLOB")) && firstText == null)
+                            {
+                                firstText = col;
+                            }
+                        }
+                    }
+                    sc.Close();
+                    return firstText;
+                }
+            }
+            catch { }
+            return null;
+        }
+
+        private bool IsIntegerType(string type)
+        {
+            if (string.IsNullOrEmpty(type)) return false;
+            var t = type.ToUpper();
+            return t.Contains("INT");
+        }
+
+        private string TranslateColumn(string col)
+        {
+            var map = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            {
+                {"name","Имя"}, {"phone","Телефон"}, {"email","Электронная почта"}, {"last_name","Фамилия"}, {"first_name","Имя"}, {"patronymic","Отчество"}, {"delivery_date","Дата"}, {"order_date","Дата заказа"}, {"city","Город"}, {"street","Улица"}, {"house_number","Номер дома"}, {"apartment","Квартира"}, {"building","Корпус"}
+            };
+            // дополнительные соответствия для FK
+            var fkMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            {
+                {"warehouse_id","Склад"}, {"supplier_id","Поставщик"}, {"client_id","Клиент"}, {"employee_id","Сотрудник"}, {"status_id","Статус"}, {"product_id","Товар"}, {"role_id","Роль"}
+            };
+            if (fkMap.ContainsKey(col)) return fkMap[col];
+            if (map.ContainsKey(col)) return map[col];
+            return col;
+        }
+    }
+}

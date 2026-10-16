@@ -1,4 +1,4 @@
-﻿namespace pz6.forms
+namespace pz6.forms
 {
     partial class Table
     {

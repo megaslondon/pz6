@@ -15,6 +15,13 @@ namespace pz6
             InitializeComponent();
             sqliteConn = new SQLiteConnection(ConnectionString);
             sqliteConn.Open();
+            // attach handlers for справочники меню
+            try
+            {
+                this.статусыЗаказаToolStripMenuItem.Click += статусыЗаказаToolStripMenuItem_Click;
+                this.ролиToolStripMenuItem.Click += ролиToolStripMenuItem_Click;
+            }
+            catch { }
         }
 
         private void createTable(string text)
@@ -22,7 +29,7 @@ namespace pz6
             bool flag = true;
             foreach (var a in MdiChildren)
             {
-                if (a.Text == text)
+                if (a.Name == text || a.Text == text)
                 {
                     flag = false;
                     break;
@@ -30,12 +37,34 @@ namespace pz6
             }
             if (flag)
             {
-                Table t = new Table(text, ConnectionString)
+                // Для Клиентов и Поставок используем форму Table2 (мастер-деталь)
+                if (text == "Клиенты" || text == "Поставки" || text == "Заказы")
                 {
-                    MdiParent = this
-                };
-                t.Show();
+                    Table2 t2 = new Table2(text, ConnectionString)
+                    {
+                        MdiParent = this
+                    };
+                    t2.Show();
+                }
+                else
+                {
+                    Table t = new Table(text, ConnectionString)
+                    {
+                        MdiParent = this
+                    };
+                    t.Show();
+                }
             }
+        }
+
+        private void статусыЗаказаToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            createTable("Статусы заказа");
+        }
+
+        private void ролиToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            createTable("Роли");
         }
 
         private void Form1_Load(object sender, EventArgs e)
@@ -124,5 +153,14 @@ namespace pz6
 
         }
 
+        private void статусыЗаказаToolStripMenuItem_Click_1(object sender, EventArgs e)
+        {
+
+        }
+
+        private void товарыНаСкладеToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+
+        }
     }
 }

@@ -1,0 +1,128 @@
+﻿using pz6.forms;
+using System;
+using System.Data.SQLite;
+using System.Windows.Forms;
+
+namespace pz6
+{
+    public partial class FMDI : Form
+    {
+        private SQLiteConnection sqliteConn;
+        private string ConnectionString = "Data Source=sklad_t_o.db;Version=3;";
+
+        public FMDI()
+        {
+            InitializeComponent();
+            sqliteConn = new SQLiteConnection(ConnectionString);
+            sqliteConn.Open();
+        }
+
+        private void createTable(string text)
+        {
+            bool flag = true;
+            foreach (var a in MdiChildren)
+            {
+                if (a.Text == text)
+                {
+                    flag = false;
+                    break;
+                }
+            }
+            if (flag)
+            {
+                Table t = new Table(text, ConnectionString)
+                {
+                    MdiParent = this
+                };
+                t.Show();
+            }
+        }
+
+        private void Form1_Load(object sender, EventArgs e)
+        {
+
+        }
+
+        private void Form1_FormClosed(object sender, FormClosedEventArgs e)
+        {
+            sqliteConn.Close();
+        }
+
+        private void toolStripMenuItem1_Click(object sender, EventArgs e)
+        {
+
+        }
+
+        private void окноToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+
+        }
+
+        private void выходToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            this.Close();
+        }
+
+        private void каскадToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            LayoutMdi(MdiLayout.Cascade);
+        }
+
+        private void горизонтальноToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            LayoutMdi(MdiLayout.TileHorizontal);
+        }
+
+        private void вертикальноToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            LayoutMdi(MdiLayout.TileVertical);
+        }
+
+        private void сотрудникиToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            string text = (sender as ToolStripMenuItem).Text;
+            createTable(text);
+        }
+
+        private void клиентыToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            string text = (sender as ToolStripMenuItem).Text;
+            createTable(text);
+        }
+
+        private void товарыToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            string text = (sender as ToolStripMenuItem).Text;
+            createTable(text);
+        }
+
+        private void складыToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            string text = (sender as ToolStripMenuItem).Text;
+            createTable(text);
+        }
+
+        private void заказыToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            string text = (sender as ToolStripMenuItem).Text;
+            createTable(text);
+        }
+
+        private void поставщикиToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            string text = (sender as ToolStripMenuItem).Text;
+            createTable(text);
+        }
+        private void поставкиToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            string text = (sender as ToolStripMenuItem).Text;
+            createTable(text);
+        }
+
+        private void toolStripSeparator1_Click(object sender, EventArgs e)
+        {
+
+        }
+
+    }
+}

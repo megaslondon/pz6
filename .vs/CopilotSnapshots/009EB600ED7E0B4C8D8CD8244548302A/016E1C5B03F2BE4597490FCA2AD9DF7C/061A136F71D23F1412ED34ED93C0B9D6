@@ -1,0 +1,143 @@
+﻿using pz6.forms.employee;
+using System;
+using System.Collections.Generic;
+using System.ComponentModel;
+using System.Data;
+using System.Data.SQLite;
+using System.Drawing;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+using System.Windows.Forms;
+
+namespace pz6.forms
+{
+    public partial class Table : Form
+    {
+        private SQLiteConnection sc = new SQLiteConnection();
+        private SQLiteDataAdapter a;
+        private SQLiteCommand command = new SQLiteCommand();
+        private DataTable dt = new DataTable();
+
+        private string nameTable;
+        private string query;
+
+        private int CurrentIndex = 0;
+
+        public Table(string nameF, string connString)
+        {
+            InitializeComponent();
+            this.Text = nameF;
+            this.Name = nameF;
+            this.sc.ConnectionString = connString;
+            switch (this.Name)
+            {
+                case "Сотрудники":
+                    {
+                        query = "SELECT e.employee_id AS 'ИД', e.last_name AS 'Фамилия', e.first_name AS 'Имя', e.patronymic AS 'Отчество', e.login AS 'Логин', r.name AS 'Роль' FROM employee e JOIN role r ON e.role_id = r.role_id;";
+                        this.nameTable = "employee";
+                        break;
+                    }
+
+                case "Клиенты":
+                    {
+                        query = "SELECT client_id AS 'ИД', name AS 'Имя', phone AS 'Телефон', email AS 'Электронная почта' FROM client;";
+                        this.nameTable = "client";
+                        break;
+                    }
+
+                case "Товары":
+                    {
+                        query = "SELECT p.product_id AS 'ИД', p.name AS 'Название', p.article AS 'Артикул', p.product_type AS 'Тип товара', s.name AS 'Поставщик', p.sale_price AS 'Цена продажи' FROM product p LEFT JOIN supplier s ON p.supplier_id = s.supplier_id;";
+                        this.nameTable = "product";
+                        break;
+                    }
+
+                case "Склады":
+                    {
+                        query = "SELECT warehouse_id AS 'ИД', name AS 'Название', city AS 'Город', street AS 'Улица', house_number AS 'Номер дома' FROM warehouse;";
+                        this.nameTable = "warehouse";
+                        break;
+                    }
+
+                case "Заказы":
+                    {
+                        query = "SELECT o.order_id AS 'ИД', o.order_date AS 'Дата', s.name AS 'Статус', o.city AS 'Город', o.street AS 'Улица', o.house_number AS 'Дом', o.building AS 'Корпус', o.apartment AS 'Квартира' FROM orders o JOIN status s ON o.status_id = s.status_id;";
+                        this.nameTable = "orders";
+                        break;
+                    }
+
+                case "Поставщики":
+                    {
+                        query = "SELECT supplier_id AS 'ИД', name AS 'Название', phone AS 'Телефон', email AS 'Электронная почта' FROM supplier;";
+                        this.nameTable = "supplier";
+                        break;
+                    }
+
+                case "Поставки":
+                    {
+                        query = "SELECT d.delivery_id AS 'ИД', d.delivery_date AS 'Дата', e.last_name || ' ' || e.first_name AS 'Сотрудник', w.name AS 'Склад', s.name AS 'Поставщик' FROM delivery d JOIN employee e ON d.employee_id = e.employee_id JOIN warehouse w ON d.warehouse_id = w.warehouse_id LEFT JOIN supplier s ON d.supplier_id = s.supplier_id;";
+                        this.nameTable = "delivery";
+                        break;
+                    }
+
+                default:
+                    {
+                        MessageBox.Show("Ошибка! Выбранная таблица не может быть отражена!");
+                        break;
+                    }
+            }
+            a = new SQLiteDataAdapter(query, sc);
+            a.Fill(dt);
+            dataGridView1.DataSource = dt;
+        }
+
+        private void toolStripButton1_Click(object sender, EventArgs e)
+        {
+
+        }
+
+        private void InsEdit(int param)
+        {
+            int rowCount = dataGridView1.RowCount;
+            if (rowCount != 0)
+            {
+                CurrentIndex = dataGridView1.CurrentRow.Index;
+            }
+            else if (param == 1)
+            {
+                    MessageBox.Show("Нет данных для редактирования!");
+                    return;
+            }
+            switch (this.Name)
+            {
+                case "Сотрудники":
+                    {
+                        InsEditEmployee ed;
+                        if (param == 0) ed = new InsEditEmployee("Добавление сотрудника", this.sc.ConnectionString);
+                        else ed = new InsEditEmployee("Изменение данных о сотруднике", this.sc.ConnectionString, dt.Rows[dataGridView1.CurrentRow.Index]);
+                        ed.Tag = param;
+                        ed.ShowDialog();
+                        break;
+                    }
+                default:
+                    {
+                        MessageBox.Show("Ошибка! Для данной таблицы запрошенное действие не может быть выполнено!");
+                        break;
+                    }
+            }
+            dt.Clear();
+            a = new SQLiteDataAdapter(query, sc);
+            a.Fill(dt);
+            dataGridView1.DataSource = dt;
+
+            if(rowCount != 0)
+            {
+                dataGridView1.CurrentCell = rowCount == dataGridView1.RowCount ?
+                    dataGridView1.Rows[CurrentIndex].Cells[dataGridView1.ColumnCount - 1] :
+                    dataGridView1.Rows[rowCount].Cells[dataGridView1.ColumnCount - 1];
+
+            }
+        }
+    }
+}
