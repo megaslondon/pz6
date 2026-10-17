@@ -46,11 +46,11 @@
             this.отчетыToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.warehouseLast = new System.Windows.Forms.ToolStripMenuItem();
             this.saleGeo = new System.Windows.Forms.ToolStripMenuItem();
+            this.employeeEfficiency = new System.Windows.Forms.ToolStripMenuItem();
             this.окноToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.каскадToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.горизонтальноToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.вертикальноToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-            this.employeeEfficiency = new System.Windows.Forms.ToolStripMenuItem();
             this.menuStrip1.SuspendLayout();
             this.SuspendLayout();
             // 
@@ -198,6 +198,14 @@
             this.saleGeo.Name = "saleGeo";
             this.saleGeo.Size = new System.Drawing.Size(344, 22);
             this.saleGeo.Text = "География продаж по категориям (MS Excel)";
+            this.saleGeo.Click += new System.EventHandler(this.saleGeo_Click);
+            // 
+            // employeeEfficiency
+            // 
+            this.employeeEfficiency.Name = "employeeEfficiency";
+            this.employeeEfficiency.Size = new System.Drawing.Size(344, 22);
+            this.employeeEfficiency.Text = "Эффективность сотрудников (PDF)";
+            this.employeeEfficiency.Click += new System.EventHandler(this.employeeEfficiency_Click);
             // 
             // окноToolStripMenuItem
             // 
@@ -230,12 +238,6 @@
             this.вертикальноToolStripMenuItem.Size = new System.Drawing.Size(158, 22);
             this.вертикальноToolStripMenuItem.Text = "Вертикально";
             this.вертикальноToolStripMenuItem.Click += new System.EventHandler(this.вертикальноToolStripMenuItem_Click);
-            // 
-            // employeeEfficiency
-            // 
-            this.employeeEfficiency.Name = "employeeEfficiency";
-            this.employeeEfficiency.Size = new System.Drawing.Size(344, 22);
-            this.employeeEfficiency.Text = "Эффективность сотрудников (PDF)";
             // 
             // FMDI
             // 

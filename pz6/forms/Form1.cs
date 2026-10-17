@@ -1,7 +1,9 @@
 ﻿using pz6.forms;
+using pz6.reports;
 using System;
 using System.Data.SQLite;
 using System.Windows.Forms;
+using static System.Net.Mime.MediaTypeNames;
 
 namespace pz6
 {
@@ -54,6 +56,27 @@ namespace pz6
                     };
                     t.Show();
                 }
+            }
+        }
+
+        private void createReport(string name, string text)
+        {
+            bool flag = true;
+            foreach (var a in MdiChildren)
+            {
+                if (a.Name == name)
+                {
+                    flag = false;
+                    break;
+                }
+            }
+            if (flag)
+            {
+                ReportGen rp = new ReportGen(name, ConnectionString, text)
+                {
+                    MdiParent = this
+                };
+                rp.Show();
             }
         }
 
@@ -160,7 +183,17 @@ namespace pz6
 
         private void товарыНаСкладеToolStripMenuItem_Click(object sender, EventArgs e)
         {
+            createReport((sender as ToolStripMenuItem).Name, (sender as ToolStripMenuItem).Text);
+        }
 
+        private void saleGeo_Click(object sender, EventArgs e)
+        {
+            createReport((sender as ToolStripMenuItem).Name, (sender as ToolStripMenuItem).Text);
+        }
+
+        private void employeeEfficiency_Click(object sender, EventArgs e)
+        {
+            createReport((sender as ToolStripMenuItem).Name, (sender as ToolStripMenuItem).Text);
         }
     }
 }
