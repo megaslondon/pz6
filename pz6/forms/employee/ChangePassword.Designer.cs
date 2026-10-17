@@ -1,16 +1,16 @@
-﻿namespace pz6.forms.employee
+namespace pz6.forms.employee
 {
     partial class ChangePassword
     {
-        /// <summary>
-        /// Required designer variable.
-        /// </summary>
+        
+        
+        
         private System.ComponentModel.IContainer components = null;
 
-        /// <summary>
-        /// Clean up any resources being used.
-        /// </summary>
-        /// <param name="disposing">true if managed resources should be disposed; otherwise, false.</param>
+        
+        
+        
+        
         protected override void Dispose(bool disposing)
         {
             if (disposing && (components != null))
@@ -22,10 +22,10 @@
 
         #region Windows Form Designer generated code
 
-        /// <summary>
-        /// Required method for Designer support - do not modify
-        /// the contents of this method with the code editor.
-        /// </summary>
+        
+        
+        
+        
         private void InitializeComponent()
         {
             this.textBox1 = new System.Windows.Forms.TextBox();
@@ -35,18 +35,18 @@
             this.okButton = new System.Windows.Forms.Button();
             this.cancelButton = new System.Windows.Forms.Button();
             this.SuspendLayout();
-            // 
-            // textBox1
-            // 
+            
+            
+            
             this.textBox1.Location = new System.Drawing.Point(119, 12);
             this.textBox1.Name = "textBox1";
             this.textBox1.PasswordChar = '*';
             this.textBox1.ShortcutsEnabled = false;
             this.textBox1.Size = new System.Drawing.Size(100, 20);
             this.textBox1.TabIndex = 0;
-            // 
-            // passwordLabel
-            // 
+            
+            
+            
             this.passwordLabel.AutoSize = true;
             this.passwordLabel.Font = new System.Drawing.Font("Microsoft Sans Serif", 9.75F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(204)));
             this.passwordLabel.Location = new System.Drawing.Point(12, 16);
@@ -54,27 +54,27 @@
             this.passwordLabel.Size = new System.Drawing.Size(56, 16);
             this.passwordLabel.TabIndex = 1;
             this.passwordLabel.Text = "Пароль";
-            // 
-            // passwordConfLabel
-            // 
+            
+            
+            
             this.passwordConfLabel.Font = new System.Drawing.Font("Microsoft Sans Serif", 9.75F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(204)));
             this.passwordConfLabel.Location = new System.Drawing.Point(12, 42);
             this.passwordConfLabel.Name = "passwordConfLabel";
             this.passwordConfLabel.Size = new System.Drawing.Size(101, 37);
             this.passwordConfLabel.TabIndex = 3;
             this.passwordConfLabel.Text = "Подтвердите пароль";
-            // 
-            // textBox2
-            // 
+            
+            
+            
             this.textBox2.Location = new System.Drawing.Point(119, 42);
             this.textBox2.Name = "textBox2";
             this.textBox2.PasswordChar = '*';
             this.textBox2.ShortcutsEnabled = false;
             this.textBox2.Size = new System.Drawing.Size(100, 20);
             this.textBox2.TabIndex = 2;
-            // 
-            // okButton
-            // 
+            
+            
+            
             this.okButton.Location = new System.Drawing.Point(144, 95);
             this.okButton.Name = "okButton";
             this.okButton.Size = new System.Drawing.Size(75, 23);
@@ -82,18 +82,18 @@
             this.okButton.Text = "ОК";
             this.okButton.UseVisualStyleBackColor = true;
             this.okButton.Click += new System.EventHandler(this.button1_Click);
-            // 
-            // cancelButton
-            // 
+            
+            
+            
             this.cancelButton.Location = new System.Drawing.Point(15, 95);
             this.cancelButton.Name = "cancelButton";
             this.cancelButton.Size = new System.Drawing.Size(75, 23);
             this.cancelButton.TabIndex = 5;
             this.cancelButton.Text = "Отмена";
             this.cancelButton.UseVisualStyleBackColor = true;
-            // 
-            // ChangePassword
-            // 
+            
+            
+            
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(229, 125);

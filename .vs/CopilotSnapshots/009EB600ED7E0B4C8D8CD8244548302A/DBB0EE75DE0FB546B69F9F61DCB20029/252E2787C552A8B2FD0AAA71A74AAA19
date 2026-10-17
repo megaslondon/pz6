@@ -1,0 +1,390 @@
+﻿using pz6.forms.employee;
+using System;
+using System.Collections.Generic;
+using System.ComponentModel;
+using System.Data;
+using System.Data.SQLite;
+using System.Drawing;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+using System.Windows.Forms;
+using System.IO;
+
+namespace pz6.forms
+{
+    public partial class Table : Form
+    {
+        private SQLiteConnection sc = new SQLiteConnection();
+        private SQLiteDataAdapter a;
+        private SQLiteCommand command = new SQLiteCommand();
+        private DataTable dt = new DataTable();
+
+        private string nameTable;
+        private string query;
+
+        private int CurrentIndex = 0;
+
+        public Table(string nameF, string connString)
+        {
+            InitializeComponent();
+            this.Text = nameF;
+            this.Name = nameF;
+            this.sc.ConnectionString = connString;
+            switch (this.Name)
+            {
+                case "Сотрудники":
+                    {
+                        query = "SELECT e.employee_id AS 'ИД', e.last_name AS 'Фамилия', e.first_name AS 'Имя', e.patronymic AS 'Отчество', e.login AS 'Логин', r.name AS 'Роль' FROM employee e JOIN role r ON e.role_id = r.role_id;";
+                        this.nameTable = "employee";
+                        break;
+                    }
+
+                case "Клиенты":
+                    {
+                        query = "SELECT client_id AS 'ИД', name AS 'Имя', phone AS 'Телефон', email AS 'Электронная почта' FROM client;";
+                        this.nameTable = "client";
+                        break;
+                    }
+
+                case "Товары":
+                    {
+                        query = "SELECT p.product_id AS 'ИД', p.name AS 'Название', p.article AS 'Артикул', p.product_type AS 'Тип товара', s.name AS 'Поставщик', p.sale_price AS 'Цена продажи' FROM product p LEFT JOIN supplier s ON p.supplier_id = s.supplier_id;";
+                        this.nameTable = "product";
+                        break;
+                    }
+
+                case "Склады":
+                    {
+                        query = "SELECT warehouse_id AS 'ИД', name AS 'Название', city AS 'Город', street AS 'Улица', house_number AS 'Номер дома' FROM warehouse;";
+                        this.nameTable = "warehouse";
+                        break;
+                    }
+
+                case "Заказы":
+                    {
+                        query = "SELECT o.order_id AS 'ИД', o.order_date AS 'Дата', s.name AS 'Статус', o.city AS 'Город', o.street AS 'Улица', o.house_number AS 'Дом', o.building AS 'Корпус', o.apartment AS 'Квартира' FROM orders o JOIN status s ON o.status_id = s.status_id;";
+                        this.nameTable = "orders";
+                        break;
+                    }
+
+                case "Поставщики":
+                    {
+                        query = "SELECT supplier_id AS 'ИД', name AS 'Название', phone AS 'Телефон', email AS 'Электронная почта' FROM supplier;";
+                        this.nameTable = "supplier";
+                        break;
+                    }
+
+                case "Поставки":
+                    {
+                        query = "SELECT d.delivery_id AS 'ИД', d.delivery_date AS 'Дата', e.last_name || ' ' || e.first_name AS 'Сотрудник', w.name AS 'Склад', s.name AS 'Поставщик' FROM delivery d JOIN employee e ON d.employee_id = e.employee_id JOIN warehouse w ON d.warehouse_id = w.warehouse_id LEFT JOIN supplier s ON d.supplier_id = s.supplier_id;";
+                        this.nameTable = "delivery";
+                        break;
+                    }
+
+                case "Роли":
+                    {
+                        query = "SELECT role_id AS 'Номер роли', name AS 'Роль' FROM role;";
+                        this.nameTable = "role";
+                        break;
+                    }
+
+                case "Статусы заказа":
+                    {
+                        query = "SELECT status_id AS 'Номер статуса', name AS 'Статус' FROM status;";
+                        this.nameTable = "status";
+                        break;
+                    }
+
+                default:
+                    {
+                        MessageBox.Show("Ошибка! Выбранная таблица не может быть отражена!");
+                        break;
+                    }
+            }
+
+            a = new SQLiteDataAdapter(query, sc);
+            a.Fill(dt);
+            dataGridView1.DataSource = dt;
+
+            // скрывать колонку ИД, если она есть
+            try
+            {
+                if (dataGridView1.Columns.Count > 0 && this.nameTable!="role"&&this.nameTable!="status")
+                {
+                    var first = dataGridView1.Columns[0];
+                    first.Visible = false;
+                    first.ReadOnly = true;
+                }
+            }
+            catch { }
+
+            // подключаем обработчики кнопок
+            // Обработчик InsTable уже подписан в Designer; не дублируем вызов
+            EditTable.Click += (s, e) => InsEdit(1);
+            DelTable.Click += DelTable_Click;
+            CloseTable.Click += (s, e) => this.Close();
+
+            // попытаться загрузить иконки из каталога icons
+            //try
+            //{
+            //    var iconsDir = FindIconsDir();
+            //    if (!string.IsNullOrEmpty(iconsDir))
+            //    {
+            //        LoadButtonIcon(InsTable, Path.Combine(iconsDir, "add.png"));
+            //        LoadButtonIcon(EditTable, Path.Combine(iconsDir, "edit.png"));
+            //        LoadButtonIcon(DelTable, Path.Combine(iconsDir, ".png"));
+            //        LoadButtonIcon(CloseTable, Path.Combine(iconsDir, "close.png"));
+            //    }
+            //}
+            //catch { }
+        }
+
+        //private string FindIconsDir()
+        //{
+        //    var baseDir = AppDomain.CurrentDomain.BaseDirectory;
+        //    var candidates = new[] {
+        //        Path.Combine(baseDir, "icons"),
+        //        Path.Combine(baseDir, "..", "icons"),
+        //        Path.Combine(baseDir, "..", "..", "icons"),
+        //        Path.Combine(baseDir, "pz6", "icons"),
+        //        Path.Combine(baseDir, "..", "pz6", "icons")
+        //    };
+        //    foreach (var c in candidates)
+        //    {
+        //        var full = Path.GetFullPath(c);
+        //        if (Directory.Exists(full)) return full;
+        //    }
+        //    return null;
+        //}
+
+        //private void LoadButtonIcon(System.Windows.Forms.ToolStripButton btn, string path)
+        //{
+        //    try
+        //    {
+        //        if (File.Exists(path)) btn.Image = Image.FromFile(path);
+        //    }
+        //    catch { }
+        //}
+
+        private void toolStripButton1_Click(object sender, EventArgs e)
+        {
+            InsEdit(0);
+        }
+
+        private void DelTable_Click(object sender, EventArgs e)
+        {
+            if (dataGridView1.CurrentRow == null) return;
+            var idObj = dataGridView1.CurrentRow.Cells[0].Value;
+            if (idObj == null) return;
+            if (!int.TryParse(idObj.ToString(), out int id)) return;
+
+            var res = MessageBox.Show("Вы действительно хотите удалить выбранную запись?", "Подтвердите удаление", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+            if (res != DialogResult.Yes) return;
+
+            string tableDb = nameTable; // уже хранит имя таблицы БД
+            string pk = GetPrimaryKeyColumn(tableDb);
+            if (string.IsNullOrEmpty(pk))
+            {
+                MessageBox.Show("Не удалось определить первичный ключ таблицы.", "Ошибка", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return;
+            }
+
+            string sql = $"DELETE FROM {tableDb} WHERE {pk} = @id;";
+            using (var cmd = new SQLiteCommand(sql, sc))
+            {
+                cmd.Parameters.AddWithValue("@id", id);
+                try
+                {
+                    var references = FindReferences(tableDb, pk, id);
+                    if (references.Count > 0)
+                    {
+                        MessageBox.Show("Нельзя удалить запись: она используется в связанных данных. Сначала удалите связанные записи.", "Предупреждение", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        return;
+                    }
+                    sc.Open(); cmd.ExecuteNonQuery(); sc.Close();
+                }
+                catch (SQLiteException ex)
+                {
+                    if (sc.State == ConnectionState.Open) sc.Close();
+                    MessageBox.Show(GetConstraintWarning(ex), "Предупреждение", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+                catch (Exception ex)
+                {
+                    if (sc.State == ConnectionState.Open) sc.Close();
+                    MessageBox.Show("Ошибка при удалении: " + ex.Message, "Ошибка", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    return;
+                }
+            }
+
+            // обновить представление
+            dt.Clear(); a = new SQLiteDataAdapter(query, sc); a.Fill(dt); dataGridView1.DataSource = dt;
+        }
+
+        private string GetConstraintWarning(SQLiteException ex)
+        {
+            var message = (ex.Message ?? string.Empty).ToLowerInvariant();
+            if (message.Contains("unique constraint") || message.Contains("constraint failed"))
+                return "Такая запись уже существует или дублирует существующие данные.";
+            if (message.Contains("foreign key"))
+                return "Нельзя удалить запись: она используется в связанных данных.";
+            if (message.Contains("not null"))
+                return "Не заполнено обязательное поле.";
+            return "Операция нарушает ограничение базы данных. Проверьте связанные записи.";
+        }
+
+        private List<string> FindReferences(string tableName, string primaryKey, int id)
+        {
+            var result = new List<string>();
+            using (var connection = new SQLiteConnection(sc.ConnectionString))
+            {
+                connection.Open();
+                var tables = new List<string>();
+                using (var command = new SQLiteCommand("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%';", connection))
+                using (var reader = command.ExecuteReader())
+                {
+                    while (reader.Read()) tables.Add(reader[0].ToString());
+                }
+                foreach (var table in tables)
+                {
+                    using (var command = new SQLiteCommand("PRAGMA foreign_key_list([" + table.Replace("]", "]]" ) + "]);", connection))
+                    using (var reader = command.ExecuteReader())
+                    {
+                        while (reader.Read())
+                        {
+                            if (!tableName.Equals(reader[2].ToString(), StringComparison.OrdinalIgnoreCase) ||
+                                !primaryKey.Equals(reader[4].ToString(), StringComparison.OrdinalIgnoreCase)) continue;
+                            var column = reader[3].ToString();
+                            using (var countCommand = new SQLiteCommand("SELECT COUNT(*) FROM [" + table.Replace("]", "]]" ) + "] WHERE [" + column.Replace("]", "]]" ) + "] = @id;", connection))
+                            {
+                                countCommand.Parameters.AddWithValue("@id", id);
+                                if (Convert.ToInt32(countCommand.ExecuteScalar()) > 0) result.Add(table);
+                            }
+                        }
+                    }
+                }
+            }
+            return result;
+        }
+
+        private void InsEdit(int param)
+        {
+            int rowCount = dataGridView1.RowCount;
+            if (rowCount != 0)
+            {
+                CurrentIndex = dataGridView1.CurrentRow.Index;
+            }
+            else if (param == 1)
+            {
+                MessageBox.Show("Нет данных для редактирования!");
+                return;
+            }
+
+            // Общая обработка через универсальную форму InsEditGeneric, спец. случай для сотрудников
+            string tableDb = nameTable; // имя таблицы в БД
+            try
+            {
+                if (this.Name == "Сотрудники")
+                {
+                    if (param == 0)
+                    {
+                        using (var f = new InsEditGeneric("Добавление сотрудника", "employee", sc.ConnectionString, null))
+                        {
+                            if (f.ShowDialog() == DialogResult.OK)
+                            {
+                                dt.Clear();
+                                a = new SQLiteDataAdapter(query, sc);
+                                a.Fill(dt);
+                                dataGridView1.DataSource = dt;
+                            }
+                        }
+                    }
+                    else
+                    {
+                        var idObj = dataGridView1.CurrentRow.Cells[0].Value;
+                        if (idObj == null) { MessageBox.Show("Не удалось определить идентификатор сотрудника."); return; }
+                        if (!int.TryParse(idObj.ToString(), out int id)) { MessageBox.Show("Некорректный идентификатор."); return; }
+                        using (var f = new InsEditGeneric("Изменение данных о сотруднике", "employee", sc.ConnectionString, id))
+                        {
+                            if (f.ShowDialog() == DialogResult.OK)
+                            {
+                                dt.Clear();
+                                a = new SQLiteDataAdapter(query, sc);
+                                a.Fill(dt);
+                                dataGridView1.DataSource = dt;
+                            }
+                        }
+                    }
+                }
+                else
+                {
+                    if (param == 0)
+                    {
+                        using (var f = new InsEditGeneric("Добавление записи", tableDb, sc.ConnectionString, null))
+                        {
+                            if (f.ShowDialog() == DialogResult.OK)
+                            {
+                                // refresh
+                            }
+                        }
+                    }
+                    else
+                    {
+                        var idObj = dataGridView1.CurrentRow.Cells[0].Value;
+                        if (idObj == null) { MessageBox.Show("Не удалось определить идентификатор записи."); return; }
+                        if (!int.TryParse(idObj.ToString(), out int id)) { MessageBox.Show("Некорректный идентификатор."); return; }
+                        using (var f = new InsEditGeneric("Редактирование записи", tableDb, sc.ConnectionString, id))
+                        {
+                            if (f.ShowDialog() == DialogResult.OK)
+                            {
+                                // refresh
+                            }
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("Ошибка: " + ex.Message);
+            }
+
+            // обновляем таблицу
+            dt.Clear();
+            a = new SQLiteDataAdapter(query, sc);
+            a.Fill(dt);
+            dataGridView1.DataSource = dt;
+
+            if (rowCount != 0)
+            {
+                dataGridView1.CurrentCell = rowCount == dataGridView1.RowCount ?
+                    dataGridView1.Rows[CurrentIndex].Cells[dataGridView1.ColumnCount - 1] :
+                    dataGridView1.Rows[rowCount].Cells[dataGridView1.ColumnCount - 1];
+
+            }
+        }
+
+        private string GetPrimaryKeyColumn(string tableDb)
+        {
+            try
+            {
+                using (var cmd = new SQLiteCommand($"PRAGMA table_info({tableDb});", sc))
+                {
+                    if (sc.State != ConnectionState.Open) sc.Open();
+                    using (var r = cmd.ExecuteReader())
+                    {
+                        while (r.Read())
+                        {
+                            int pk = Convert.ToInt32(r[5]);
+                            if (pk == 1) return r[1].ToString();
+                        }
+                    }
+                    sc.Close();
+                }
+            }
+            catch { if (sc.State == ConnectionState.Open) sc.Close(); }
+            return null;
+        }
+
+    }
+}

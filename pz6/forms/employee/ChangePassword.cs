@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Data;
@@ -21,13 +21,13 @@ namespace pz6.forms.employee
             InitializeComponent();
             this.connString = connString;
             this.employeeId = employeeId;
-            // close on cancel
+            
             try { this.cancelButton.Click += (s, e) => this.Close(); } catch { }
         }
 
         private void button1_Click(object sender, EventArgs e)
         {
-            // button1 assumed to be OK; use designer textBox1 and textBox2
+            
             var newPass = this.textBox1.Text;
             var confirm = this.textBox2.Text;
             if (newPass != confirm)
@@ -35,7 +35,7 @@ namespace pz6.forms.employee
                 MessageBox.Show("Пароли не совпадают.", "Ошибка", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
-            // Hash password with SHA256 and save into password_hash
+            
             try
             {
                 var hashStr = HashPassword(newPass);

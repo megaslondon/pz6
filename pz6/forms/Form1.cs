@@ -1,4 +1,4 @@
-﻿using pz6.forms;
+using pz6.forms;
 using pz6.reports;
 using System;
 using System.Data.SQLite;
@@ -17,7 +17,7 @@ namespace pz6
             InitializeComponent();
             sqliteConn = new SQLiteConnection(ConnectionString);
             sqliteConn.Open();
-            // attach handlers for справочники меню
+            
             try
             {
                 this.статусыЗаказаToolStripMenuItem.Click += статусыЗаказаToolStripMenuItem_Click;
@@ -39,7 +39,7 @@ namespace pz6
             }
             if (flag)
             {
-                // Для Клиентов и Поставок используем форму Table2 (мастер-деталь)
+                
                 if (text == "Клиенты" || text == "Поставки" || text == "Заказы")
                 {
                     Table2 t2 = new Table2(text, ConnectionString)

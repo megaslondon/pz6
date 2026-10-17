@@ -15,11 +15,9 @@ namespace pz6.reports
 {
     public partial class ReportGen : Form
     {
-        private SQLiteConnection sc = new SQLiteConnection();
-        private SQLiteDataAdapter a;
-        private DataSet tmp = new DataSet();
         private DataTable dt = new DataTable();
         private string query;
+        private string connString;
 
 
         public ReportGen(string choice, string connString, string text)
@@ -27,9 +25,7 @@ namespace pz6.reports
             InitializeComponent();
             this.Name = choice;
             this.Text = text;
-            sc = new SQLiteConnection();
-            this.sc.ConnectionString = connString;
-            tmp = new DataSet();
+            this.connString = connString;
 
             switch (choice)
             {
@@ -55,10 +51,35 @@ namespace pz6.reports
                     }
             }
 
-            dt.Clear();
-            a = new SQLiteDataAdapter(query, sc);
-            a.Fill(dt);
-            dataGridView1.DataSource = dt;
+            Load += async (s, e) => await LoadReportAsync();
+        }
+
+        private async Task LoadReportAsync()
+        {
+            button1.Enabled = false;
+            try
+            {
+                var result = await Task.Run(() =>
+                {
+                    var table = new DataTable();
+                    using (var connection = new SQLiteConnection(connString))
+                    using (var adapter = new SQLiteDataAdapter(query, connection))
+                    {
+                        adapter.Fill(table);
+                    }
+                    return table;
+                });
+                dt = result;
+                dataGridView1.DataSource = dt;
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("Ошибка загрузки отчёта: " + ex.Message, "Ошибка", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            finally
+            {
+                button1.Enabled = true;
+            }
         }
 
         private void button1_Click(object sender, EventArgs e)
@@ -67,17 +88,17 @@ namespace pz6.reports
             {
                 case "warehouseLast":
                     {
-                        ExportToWord(dataGridView1, this.Name);
+                        ExportToWord(dt, this.Name);
                         break;
                     }
                 case "saleGeo":
                     {
-                        ExportToExcel(dataGridView1, this.Name);
+                        ExportToExcel(dt, this.Name);
                         break;
                     }
                 case "employeeEfficiency":
                     {
-                        ExportToWord(dataGridView1, this.Name, true);
+                        ExportToWord(dt, this.Name, true);
                         break;
                     }
                 default:
@@ -93,9 +114,9 @@ namespace pz6.reports
             this.Close();
         }
 
-        private void ExportToExcel(DataGridView dgv, string name)
+        private void ExportToExcel(DataTable table, string name)
         {
-            if (dgv.Rows.Count == 0)
+            if (table.Rows.Count == 0)
             {
                 MessageBox.Show("Нет данных для формирования отчета!");
                 return;
@@ -111,56 +132,37 @@ namespace pz6.reports
                 }
 
                 string savePath = sfd.FileName;
+                var snapshot = table.Copy();
+                button1.Enabled = false;
 
-                Excel.Application application = new Excel.Application
+                Task.Run(() =>
                 {
-                    Visible = false
-                };
-                Excel.Workbook workbook;
-                Excel.Worksheet worksheet;
-
-                workbook = application.Workbooks.Add(System.Reflection.Missing.Value);
-                worksheet = (Excel.Worksheet)workbook.Sheets[1];
-
-                try
-                {
-                    int rowCount = dgv.Rows.Count;
-
-                    int colCount = dgv.Columns.Count;
-
-                    for (int c = 0; c < colCount; c++)
+                    Excel.Application application = new Excel.Application { Visible = false };
+                    Excel.Workbook workbook = application.Workbooks.Add(System.Reflection.Missing.Value);
+                    Excel.Worksheet worksheet = (Excel.Worksheet)workbook.Sheets[1];
+                    try
                     {
-                        worksheet.Cells[1, c + 1] = dgv.Columns[c].HeaderText;
-                    }
-
-                    for (int r = 0; r < rowCount; r++)
-                    {
-                        for (int c = 0; c < colCount; c++)
+                        for (int c = 0; c < snapshot.Columns.Count; c++)
+                            worksheet.Cells[1, c + 1] = snapshot.Columns[c].ColumnName;
+                        for (int r = 0; r < snapshot.Rows.Count; r++)
                         {
-                            object value = dgv.Rows[r].Cells[c].Value;
-                            worksheet.Cells[r + 2, c + 1] = value != null ? value.ToString() : string.Empty;
+                            for (int c = 0; c < snapshot.Columns.Count; c++)
+                                worksheet.Cells[r + 2, c + 1] = snapshot.Rows[r][c] == DBNull.Value ? string.Empty : snapshot.Rows[r][c].ToString();
                         }
+                        workbook.SaveAs(savePath);
                     }
-
-                    workbook.SaveAs(savePath);
-                    MessageBox.Show("Файл успешно сохранен!", "Успех", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                }
-
-                catch (Exception ex)
+                    finally { application.Quit(); }
+                }).ContinueWith(t =>
                 {
-                    MessageBox.Show("Произошла ошибка при экспорте: " + ex.Message, "Ошибка", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                }
-
-                finally
-                {
-                    application.Quit();
-                }
+                    button1.Enabled = true;
+                    MessageBox.Show(t.IsFaulted ? "Произошла ошибка при экспорте: " + t.Exception.GetBaseException().Message : "Файл успешно сохранен!", t.IsFaulted ? "Ошибка" : "Успех", MessageBoxButtons.OK, t.IsFaulted ? MessageBoxIcon.Error : MessageBoxIcon.Information);
+                }, TaskScheduler.FromCurrentSynchronizationContext());
             }
         }
 
-        private void ExportToWord(DataGridView dgv, string name, bool isPDF = false)
+        private void ExportToWord(DataTable table, string name, bool isPDF = false)
         {
-            if (dgv.Rows.Count == 0)
+            if (table.Rows.Count == 0)
             {
                 MessageBox.Show("Нет данных для формирования отчета!");
                 return;
@@ -177,70 +179,39 @@ namespace pz6.reports
                 }
 
                 string savePath = sfd.FileName;
+                var snapshot = table.Copy();
+                button1.Enabled = false;
 
-                Word.Application wordApp = new Word.Application
+                Task.Run(() =>
                 {
-                    Visible = false
-                };
-                Word.Document wordDoc = null;
-
-                try
-                {
-                    wordDoc = wordApp.Documents.Add();
-
-                    int rowCount = dgv.Rows.Count;
-
-                    int colCount = dgv.Columns.Count;
-
-                    Word.Range tableLocation = wordDoc.Range(0, 0);
-                    Word.Table wordTable = wordDoc.Tables.Add(tableLocation, rowCount + 1, colCount);
-                    wordTable.Borders.Enable = 1;
-
-                    for (int c = 0; c < colCount; c++)
+                    Word.Application wordApp = new Word.Application { Visible = false };
+                    Word.Document wordDoc = null;
+                    try
                     {
-                        wordTable.Cell(1, c + 1).Range.Text = dgv.Columns[c].HeaderText;
-                    }
-
-                    for (int r = 0; r < rowCount; r++)
-                    {
-                        for (int c = 0; c < colCount; c++)
+                        wordDoc = wordApp.Documents.Add();
+                        Word.Table wordTable = wordDoc.Tables.Add(wordDoc.Range(0, 0), snapshot.Rows.Count + 1, snapshot.Columns.Count);
+                        wordTable.Borders.Enable = 1;
+                        for (int c = 0; c < snapshot.Columns.Count; c++)
+                            wordTable.Cell(1, c + 1).Range.Text = snapshot.Columns[c].ColumnName;
+                        for (int r = 0; r < snapshot.Rows.Count; r++)
                         {
-                            object value = dgv.Rows[r].Cells[c].Value;
-                            wordTable.Cell(r + 2, c + 1).Range.Text = value != null ? value.ToString() : string.Empty;
+                            for (int c = 0; c < snapshot.Columns.Count; c++)
+                                wordTable.Cell(r + 2, c + 1).Range.Text = snapshot.Rows[r][c] == DBNull.Value ? string.Empty : snapshot.Rows[r][c].ToString();
                         }
+                        if (isPDF) { object fileFormat = Word.WdSaveFormat.wdFormatPDF; wordDoc.SaveAs2(savePath, ref fileFormat); }
+                        else wordDoc.SaveAs2(savePath);
                     }
-
-                    if (isPDF)
+                    finally
                     {
-                        object fileFormat = Word.WdSaveFormat.wdFormatPDF;
-                        wordDoc.SaveAs2(savePath, ref fileFormat);
-                        saveChanges = Word.WdSaveOptions.wdDoNotSaveChanges;
-                    }
-                    else
-                    { 
-                        wordDoc.SaveAs2(savePath);
-                    }
-                    MessageBox.Show("Файл успешно сохранен!", "Успех", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                }
-                catch (Exception ex)
-                {
-                    MessageBox.Show("Произошла ошибка при экспорте: " + ex.Message, "Ошибка", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                }
-                finally
-                {
-                    if (wordDoc != null)
-                    {
-                        if (saveChanges != null) wordDoc.Close(ref saveChanges);
-                        else wordDoc.Close();
-                        System.Runtime.InteropServices.Marshal.ReleaseComObject(wordDoc);
-                    }
-
-                    if (wordApp != null)
-                    {
+                        if (wordDoc != null) { wordDoc.Close(); System.Runtime.InteropServices.Marshal.ReleaseComObject(wordDoc); }
                         wordApp.Quit();
                         System.Runtime.InteropServices.Marshal.ReleaseComObject(wordApp);
                     }
-                }
+                }).ContinueWith(t =>
+                {
+                    button1.Enabled = true;
+                    MessageBox.Show(t.IsFaulted ? "Произошла ошибка при экспорте: " + t.Exception.GetBaseException().Message : "Файл успешно сохранен!", t.IsFaulted ? "Ошибка" : "Успех", MessageBoxButtons.OK, t.IsFaulted ? MessageBoxIcon.Error : MessageBoxIcon.Information);
+                }, TaskScheduler.FromCurrentSynchronizationContext());
             }
         }
     }

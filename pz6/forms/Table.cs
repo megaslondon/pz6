@@ -1,15 +1,10 @@
 using pz6.forms.employee;
 using System;
 using System.Collections.Generic;
-using System.ComponentModel;
 using System.Data;
 using System.Data.SQLite;
 using System.Drawing;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using System.Windows.Forms;
-using System.IO;
 
 namespace pz6.forms
 {
@@ -17,7 +12,6 @@ namespace pz6.forms
     {
         private SQLiteConnection sc = new SQLiteConnection();
         private SQLiteDataAdapter a;
-        private SQLiteCommand command = new SQLiteCommand();
         private DataTable dt = new DataTable();
 
         private string nameTable;
@@ -107,7 +101,6 @@ namespace pz6.forms
             a.Fill(dt);
             dataGridView1.DataSource = dt;
 
-            // скрывать колонку ИД, если она есть
             try
             {
                 if (dataGridView1.Columns.Count > 0 && this.nameTable!="role"&&this.nameTable!="status")
@@ -119,53 +112,10 @@ namespace pz6.forms
             }
             catch { }
 
-            // подключаем обработчики кнопок
-            // Обработчик InsTable уже подписан в Designer; не дублируем вызов
             EditTable.Click += (s, e) => InsEdit(1);
-            DelTable.Click += DelTable_Click;
             CloseTable.Click += (s, e) => this.Close();
 
-            // попытаться загрузить иконки из каталога icons
-            //try
-            //{
-            //    var iconsDir = FindIconsDir();
-            //    if (!string.IsNullOrEmpty(iconsDir))
-            //    {
-            //        LoadButtonIcon(InsTable, Path.Combine(iconsDir, "add.png"));
-            //        LoadButtonIcon(EditTable, Path.Combine(iconsDir, "edit.png"));
-            //        LoadButtonIcon(DelTable, Path.Combine(iconsDir, "delete.png"));
-            //        LoadButtonIcon(CloseTable, Path.Combine(iconsDir, "close.png"));
-            //    }
-            //}
-            //catch { }
         }
-
-        //private string FindIconsDir()
-        //{
-        //    var baseDir = AppDomain.CurrentDomain.BaseDirectory;
-        //    var candidates = new[] {
-        //        Path.Combine(baseDir, "icons"),
-        //        Path.Combine(baseDir, "..", "icons"),
-        //        Path.Combine(baseDir, "..", "..", "icons"),
-        //        Path.Combine(baseDir, "pz6", "icons"),
-        //        Path.Combine(baseDir, "..", "pz6", "icons")
-        //    };
-        //    foreach (var c in candidates)
-        //    {
-        //        var full = Path.GetFullPath(c);
-        //        if (Directory.Exists(full)) return full;
-        //    }
-        //    return null;
-        //}
-
-        //private void LoadButtonIcon(System.Windows.Forms.ToolStripButton btn, string path)
-        //{
-        //    try
-        //    {
-        //        if (File.Exists(path)) btn.Image = Image.FromFile(path);
-        //    }
-        //    catch { }
-        //}
 
         private void toolStripButton1_Click(object sender, EventArgs e)
         {
@@ -182,7 +132,7 @@ namespace pz6.forms
             var res = MessageBox.Show("Вы действительно хотите удалить выбранную запись?", "Подтвердите удаление", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
             if (res != DialogResult.Yes) return;
 
-            string tableDb = nameTable; // уже хранит имя таблицы БД
+            string tableDb = nameTable;
             string pk = GetPrimaryKeyColumn(tableDb);
             if (string.IsNullOrEmpty(pk))
             {
@@ -191,41 +141,92 @@ namespace pz6.forms
             }
 
             string sql = $"DELETE FROM {tableDb} WHERE {pk} = @id;";
-            using (var cmd = new SQLiteCommand(sql, sc))
+            using (var connection = new SQLiteConnection(sc.ConnectionString))
+            using (var cmd = new SQLiteCommand(sql, connection))
             {
                 cmd.Parameters.AddWithValue("@id", id);
                 try
                 {
-                    sc.Open(); cmd.ExecuteNonQuery(); sc.Close();
+                    var references = FindReferences(tableDb, pk, id);
+                    if (references.Count > 0)
+                    {
+                        MessageBox.Show("Нельзя удалить запись: она используется в связанных данных. Сначала удалите связанные записи.", "Предупреждение", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        return;
+                    }
+                    connection.Open();
+                    cmd.ExecuteNonQuery();
                 }
                 catch (SQLiteException ex)
                 {
-                    if (sc.State == ConnectionState.Open) sc.Close();
-                    MessageBox.Show(GetConstraintWarning(ex), "Предупреждение", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    if (connection.State == ConnectionState.Open) connection.Close();
+                    MessageBox.Show(GetDeleteConstraintWarning(ex), "Предупреждение", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
                 catch (Exception ex)
                 {
-                    if (sc.State == ConnectionState.Open) sc.Close();
+                    if (connection.State == ConnectionState.Open) connection.Close();
                     MessageBox.Show("Ошибка при удалении: " + ex.Message, "Ошибка", MessageBoxButtons.OK, MessageBoxIcon.Error);
                     return;
                 }
             }
 
-            // обновить представление
             dt.Clear(); a = new SQLiteDataAdapter(query, sc); a.Fill(dt); dataGridView1.DataSource = dt;
         }
 
         private string GetConstraintWarning(SQLiteException ex)
         {
             var message = (ex.Message ?? string.Empty).ToLowerInvariant();
-            if (message.Contains("unique constraint") || message.Contains("constraint failed"))
+            if (message.Contains("unique constraint") || message.Contains("primary key"))
                 return "Такая запись уже существует или дублирует существующие данные.";
             if (message.Contains("foreign key"))
-                return "Нельзя удалить запись: она используется в связанных данных.";
+                return "Связанная запись не найдена или используется в другой записи.";
+            if (message.Contains("check constraint"))
+                return "Некорректное значение поля.";
             if (message.Contains("not null"))
                 return "Не заполнено обязательное поле.";
             return "Операция нарушает ограничение базы данных. Проверьте связанные записи.";
+        }
+
+        private string GetDeleteConstraintWarning(SQLiteException ex)
+        {
+            var message = (ex.Message ?? string.Empty).ToLowerInvariant();
+            if (message.Contains("foreign key"))
+                return "Нельзя удалить запись: она используется в связанных данных.";
+            return "Ошибка при удалении: " + ex.Message;
+        }
+
+        private List<string> FindReferences(string tableName, string primaryKey, int id)
+        {
+            var result = new List<string>();
+            using (var connection = new SQLiteConnection(sc.ConnectionString))
+            {
+                connection.Open();
+                var tables = new List<string>();
+                using (var command = new SQLiteCommand("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%';", connection))
+                using (var reader = command.ExecuteReader())
+                {
+                    while (reader.Read()) tables.Add(reader[0].ToString());
+                }
+                foreach (var table in tables)
+                {
+                    using (var command = new SQLiteCommand("PRAGMA foreign_key_list([" + table.Replace("]", "]]" ) + "]);", connection))
+                    using (var reader = command.ExecuteReader())
+                    {
+                        while (reader.Read())
+                        {
+                            if (!tableName.Equals(reader[2].ToString(), StringComparison.OrdinalIgnoreCase) ||
+                                !primaryKey.Equals(reader[4].ToString(), StringComparison.OrdinalIgnoreCase)) continue;
+                            var column = reader[3].ToString();
+                            using (var countCommand = new SQLiteCommand("SELECT COUNT(*) FROM [" + table.Replace("]", "]]" ) + "] WHERE [" + column.Replace("]", "]]" ) + "] = @id;", connection))
+                            {
+                                countCommand.Parameters.AddWithValue("@id", id);
+                                if (Convert.ToInt32(countCommand.ExecuteScalar()) > 0) result.Add(table);
+                            }
+                        }
+                    }
+                }
+            }
+            return result;
         }
 
         private void InsEdit(int param)
@@ -241,8 +242,7 @@ namespace pz6.forms
                 return;
             }
 
-            // Общая обработка через универсальную форму InsEditGeneric, спец. случай для сотрудников
-            string tableDb = nameTable; // имя таблицы в БД
+            string tableDb = nameTable;
             try
             {
                 if (this.Name == "Сотрудники")
@@ -285,7 +285,6 @@ namespace pz6.forms
                         {
                             if (f.ShowDialog() == DialogResult.OK)
                             {
-                                // refresh
                             }
                         }
                     }
@@ -298,7 +297,6 @@ namespace pz6.forms
                         {
                             if (f.ShowDialog() == DialogResult.OK)
                             {
-                                // refresh
                             }
                         }
                     }
@@ -309,7 +307,6 @@ namespace pz6.forms
                 MessageBox.Show("Ошибка: " + ex.Message);
             }
 
-            // обновляем таблицу
             dt.Clear();
             a = new SQLiteDataAdapter(query, sc);
             a.Fill(dt);
@@ -328,22 +325,28 @@ namespace pz6.forms
         {
             try
             {
-                using (var cmd = new SQLiteCommand($"PRAGMA table_info({tableDb});", sc))
+                using (var connection = new SQLiteConnection(sc.ConnectionString))
+                using (var cmd = new SQLiteCommand($"PRAGMA table_info({tableDb});", connection))
                 {
-                    if (sc.State != ConnectionState.Open) sc.Open();
+                    connection.Open();
                     using (var r = cmd.ExecuteReader())
                     {
                         while (r.Read())
                         {
                             int pk = Convert.ToInt32(r[5]);
-                            if (pk == 1) return r[1].ToString();
+                            if (pk == 1)
+                            {
+                                var primaryKey = r[1].ToString();
+                                connection.Close();
+                                return primaryKey;
+                            }
                         }
                     }
-                    sc.Close();
                 }
             }
-            catch { if (sc.State == ConnectionState.Open) sc.Close(); }
+            catch { }
             return null;
         }
+
     }
 }

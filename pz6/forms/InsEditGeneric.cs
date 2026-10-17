@@ -4,6 +4,7 @@ using System.Data;
 using System.Data.SQLite;
 using System.Drawing;
 using System.Linq;
+using System.Text.RegularExpressions;
 using pz6.forms.employee;
 using System.Windows.Forms;
 
@@ -24,7 +25,7 @@ namespace pz6.forms
         private FlowLayoutPanel btnPanel;
         private Button btnChangePassword;
         private Dictionary<string, Control> inputs = new Dictionary<string, Control>();
-        // метаданные колонок: тип и обязательность
+        
         private Dictionary<string, string> colTypes = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         private Dictionary<string, bool> colRequired = new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
         private TextBox pwdBox = null;
@@ -32,16 +33,16 @@ namespace pz6.forms
         private string fixedForeignKey;
         private int? fixedForeignKeyId;
 
-        //public InsEditGeneric(string title, string tableName, string connString, int? editId = null)
-        //{
-        //    this.Text = title;
-        //    this.tableName = tableName;
-        //    this.connString = connString;
-        //    this.editId = editId;
-        //    InitializeComponent();
-        //    this.Load += InsEditGeneric_Load;
-        //    btnCancel.Click += (s, e) => this.Close();
-        //}
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
 
         public InsEditGeneric(string title, string tableName, string connString, int? editId = null, string fixedForeignKey = null, int? fixedForeignKeyId = null)
         {
@@ -52,9 +53,29 @@ namespace pz6.forms
             this.fixedForeignKey = fixedForeignKey;
             this.fixedForeignKeyId = fixedForeignKeyId;
 
-            InitializeComponent(); // Сначала инициализируем компоненты
+            InitializeComponent(); 
 
             this.Load += InsEditGeneric_Load;
+        }
+
+        private void ConfigureProductTypeSelection()
+        {
+            if (!string.Equals(tableName, "product", StringComparison.OrdinalIgnoreCase) ||
+                !inputs.ContainsKey("supplier_id") || !inputs.ContainsKey("product_type")) return;
+
+            var supplier = inputs["supplier_id"] as ComboBox;
+            var productType = inputs["product_type"] as ComboBox;
+            if (supplier == null || productType == null) return;
+
+            supplier.SelectedIndexChanged += (s, e) => SetProductTypeFromSupplier(supplier, productType);
+            SetProductTypeFromSupplier(supplier, productType);
+        }
+
+        private void SetProductTypeFromSupplier(ComboBox supplier, ComboBox productType)
+        {
+            bool ownProduction = supplier.SelectedValue == null || supplier.SelectedValue == DBNull.Value || supplier.SelectedIndex == 0;
+            productType.SelectedItem = ownProduction ? "Собственное производство" : "Внешний поставщик";
+            productType.Enabled = false;
         }
 
 
@@ -83,7 +104,7 @@ namespace pz6.forms
             this.btnPanel.AutoSizeMode = AutoSizeMode.GrowAndShrink;
             this.btnPanel.FlowDirection = FlowDirection.RightToLeft;
             this.btnPanel.Padding = new Padding(6);
-            // change password button (visible only for employee edit)
+            
             this.btnChangePassword = new Button() { Text = "Сменить пароль", Width = 125, AutoSize = false, Visible = false, Anchor = AnchorStyles.Right };
             this.btnPanel.Controls.Add(this.btnSave);
             this.btnPanel.Controls.Add(this.btnCancel);
@@ -95,7 +116,7 @@ namespace pz6.forms
 
         private void InsEditGeneric_Load(object sender, EventArgs e)
         {
-            // avoid executing runtime DB code in design-time (Visual Studio designer)
+            
             if (System.ComponentModel.LicenseManager.UsageMode == System.ComponentModel.LicenseUsageMode.Designtime) return;
             BuildFormFromSchema();
             if (editId.HasValue)
@@ -103,7 +124,7 @@ namespace pz6.forms
                 LoadExistingData();
             }
             ApplyFixedForeignKey();
-            // show change password for employee when editing
+            
             if (string.Equals(tableName, "employee", StringComparison.OrdinalIgnoreCase) && editId.HasValue)
             {
                 try
@@ -144,16 +165,16 @@ namespace pz6.forms
                                                    !colName.Equals("supplier_id", StringComparison.OrdinalIgnoreCase);
                         }
 
-                        // не редактируем и не показываем поле пароля (изменяется через отдельную форму)
+                        
                         if (colName.Equals("password_hash", StringComparison.OrdinalIgnoreCase))
                         {
-                            // password handled separately for employee creation (add password fields)
-                            // skip adding DB column control here
+                            
+                            
                             continue;
                         }
                         if (pk == 1) pkName = colName;
 
-                        // Первичные ключи и технические связи не являются полями для редактирования.
+                        
                         if (pk == 1 || IsTechnicalParentKey(colName))
                         {
                             continue;
@@ -163,7 +184,7 @@ namespace pz6.forms
 
                         Control inputControl = null;
 
-                        // Для полей даты используем DateTimePicker (распознаём по типу или по имени столбца)
+                        
                         if (IsDateType(colType) || colName.IndexOf("date", StringComparison.OrdinalIgnoreCase) >= 0)
                         {
                             var dtp = new DateTimePicker() { Width = 300, Format = DateTimePickerFormat.Custom, CustomFormat = "yyyy-MM-dd", MaxDate = DateTime.Today, Anchor = AnchorStyles.Left | AnchorStyles.Right };
@@ -171,7 +192,7 @@ namespace pz6.forms
                         }
                         else if (colName.EndsWith("_id", StringComparison.OrdinalIgnoreCase))
                         {
-                            // Попытка подгрузить справочник из таблицы по имени (без _id)
+                            
                             string refTable = colName.Substring(0, colName.Length - 3);
                             string refPk = GetPrimaryKeyForTable(refTable);
                             string displayCol = GetDisplayColumnForTable(refTable);
@@ -201,18 +222,32 @@ namespace pz6.forms
                                 inputControl = new TextBox() { Width = 300, Anchor = AnchorStyles.Left | AnchorStyles.Right };
                             }
                         }
+                        else if (colName.Equals("product_type", StringComparison.OrdinalIgnoreCase))
+                        {
+                            var cb = new ComboBox() { Width = 300, DropDownStyle = ComboBoxStyle.DropDownList, Anchor = AnchorStyles.Left | AnchorStyles.Right };
+                            cb.Items.Add("Собственное производство");
+                            cb.Items.Add("Внешний поставщик");
+                            inputControl = cb;
+                        }
                         else
                         {
                             var tb = new TextBox() { Width = 300, Anchor = AnchorStyles.Left | AnchorStyles.Right };
-                            // запретить ввод цифр для полей Фамилия/Имя/Отчество
+                            
                             if (colName.Equals("last_name", StringComparison.OrdinalIgnoreCase) || colName.Equals("first_name", StringComparison.OrdinalIgnoreCase) || colName.Equals("patronymic", StringComparison.OrdinalIgnoreCase))
                             {
                                 tb.KeyPress += TextBox_NoDigits_KeyPress;
+                            }
+                            else if (IsPhoneColumn(colName))
+                            {
+                                tb.Tag = colName;
+                                tb.KeyPress += PhoneTextBox_KeyPress;
+                                tb.TextChanged += PhoneTextBox_TextChanged;
                             }
                             else if (IsNumericType(colType))
                             {
                                 tb.Tag = colName;
                                 tb.KeyPress += NumericTextBox_KeyPress;
+                                tb.TextChanged += NumericTextBox_TextChanged;
                             }
                             inputControl = tb;
                         }
@@ -230,7 +265,8 @@ namespace pz6.forms
                         row++;
                     }
                 }
-                // Если добавляем сотрудника — добавить поля пароль и подтверждение
+                ConfigureProductTypeSelection();
+                
                 if (string.Equals(tableName, "employee", StringComparison.OrdinalIgnoreCase) && !editId.HasValue)
                 {
                     var lblPwd = new Label() { Text = "Пароль", AutoSize = true, Anchor = AnchorStyles.Left };
@@ -247,7 +283,7 @@ namespace pz6.forms
                     layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
                     layout.Controls.Add(lblPwdConf, 0, row);
                     layout.Controls.Add(pwdConfirmBox, 1, row);
-                    // не добавляем подтверждение в inputs (нет соответствующего столбца)
+                    
                     row++;
                 }
                 sc.Close();
@@ -283,12 +319,20 @@ namespace pz6.forms
                             var ctrl = inputs[k];
                             if (ctrl is ComboBox cb)
                             {
-                                if (val == DBNull.Value) cb.SelectedIndex = -1;
-                                else cb.SelectedValue = val;
+                                if (val == DBNull.Value)
+                                    cb.SelectedIndex = k.Equals("supplier_id", StringComparison.OrdinalIgnoreCase) && cb.Items.Count > 0 ? 0 : -1;
+                                else if (cb.DataSource != null) cb.SelectedValue = val;
+                                else cb.SelectedItem = val.ToString();
                             }
                             else if (ctrl is TextBox tb)
                             {
                                 tb.Text = val == DBNull.Value ? string.Empty : val.ToString();
+                            }
+                            else if (ctrl is DateTimePicker dtp && val != DBNull.Value && DateTime.TryParse(val.ToString(), out DateTime dateValue))
+                            {
+                                if (dateValue < dtp.MinDate) dtp.MinDate = dateValue.Date;
+                                if (dateValue > dtp.MaxDate) dtp.MaxDate = dateValue.Date;
+                                dtp.Value = dateValue.Date;
                             }
                         }
                     }
@@ -327,46 +371,63 @@ namespace pz6.forms
         {
             try
             {
-                // валидация полей перед сохранением
+                
                 var errors = new List<string>();
                 foreach (var kv in inputs)
                 {
                     var col = kv.Key;
                     var ctrl = kv.Value;
-                    // обязательные поля
+                    
                     if (colRequired.ContainsKey(col) && colRequired[col])
                     {
                         if (ctrl is TextBox tb && string.IsNullOrWhiteSpace(tb.Text)) errors.Add(TranslateColumn(col) + " обязательное поле.");
-                        else if (ctrl is ComboBox cb && (cb.SelectedValue == null || cb.SelectedIndex < 0)) errors.Add(TranslateColumn(col) + " обязательное поле.");
-                        else if (ctrl is DateTimePicker) { /* всегда имеет значение */ }
+                        else if (ctrl is ComboBox requiredCombo && IsComboBoxEmpty(requiredCombo)) errors.Add(TranslateColumn(col) + " обязательное поле.");
+                        else if (ctrl is DateTimePicker) {  }
                     }
 
-                    // типовые проверки
-                    if (ctrl is DateTimePicker dtp && dtp.Value.Date > DateTime.Today)
+                    
+                    if (!editId.HasValue && ctrl is DateTimePicker dtp && dtp.Value.Date > DateTime.Today)
                     {
                         errors.Add(TranslateColumn(col) + " не может быть в будущем.");
                     }
-                    if (colTypes.ContainsKey(col) && IsIntegerType(colTypes[col]))
+                    if (colTypes.ContainsKey(col) && IsNumericType(colTypes[col]))
                     {
-                        if (ctrl is TextBox tb && !string.IsNullOrWhiteSpace(tb.Text))
+                        if (ctrl is TextBox tb && !string.IsNullOrWhiteSpace(tb.Text) && IsIntegerType(colTypes[col]))
                         {
                             if (!int.TryParse(tb.Text, out _)) errors.Add(TranslateColumn(col) + " должно быть целым числом.");
                         }
-                // Проверяем ФИО при вставке/вставке через буфер обмена в обход KeyPress.
+                        else if (ctrl is TextBox decimalBox && !string.IsNullOrWhiteSpace(decimalBox.Text) &&
+                                 !decimal.TryParse(decimalBox.Text, out _))
+                        {
+                            errors.Add(TranslateColumn(col) + " должно быть числом.");
+                        }
+                    }
+                    if (ctrl is ComboBox selectedCombo && selectedCombo.SelectedValue != null && selectedCombo.SelectedValue != DBNull.Value)
+                    {
+                        if (!int.TryParse(selectedCombo.SelectedValue.ToString(), out _)) errors.Add(TranslateColumn(col) + " содержит некорректный идентификатор.");
+                    }
+                }
                 foreach (var nameColumn in new[] { "last_name", "first_name", "patronymic" })
                 {
                     if (inputs.ContainsKey(nameColumn) && inputs[nameColumn] is TextBox nameBox && nameBox.Text.Any(char.IsDigit))
+                        errors.Add(TranslateColumn(nameColumn) + " не должно содержать цифры.");
+                }
+                foreach (var phoneColumn in inputs.Keys.Where(IsPhoneColumn))
+                {
+                    if (inputs[phoneColumn] is TextBox phoneBox &&
+                        !string.IsNullOrWhiteSpace(phoneBox.Text) &&
+                        !Regex.IsMatch(phoneBox.Text, @"^\+[0-9]{11}$"))
                     {
-                        MessageBox.Show(TranslateColumn(nameColumn) + " не должно содержать цифры.", "Ошибка валидации", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                        nameBox.Focus();
-                        return;
+                        errors.Add(TranslateColumn(phoneColumn) + " должен начинаться с + и содержать 11 цифр.");
                     }
                 }
-                        if (ctrl is ComboBox cb && cb.SelectedValue != null)
-                        {
-                            // проверка значения на int
-                            if (!int.TryParse(cb.SelectedValue.ToString(), out _)) errors.Add(TranslateColumn(col) + " содержит некорректный идентификатор.");
-                        }
+                foreach (var emailColumn in inputs.Keys.Where(IsEmailColumn))
+                {
+                    if (inputs[emailColumn] is TextBox emailBox &&
+                        !string.IsNullOrWhiteSpace(emailBox.Text) &&
+                        !Regex.IsMatch(emailBox.Text, @"^[^@\s]+@[^@\s]+\.[^@\s]+$"))
+                    {
+                        errors.Add(TranslateColumn(emailColumn) + " имеет некорректный формат.");
                     }
                 }
                 if (string.Equals(tableName, "delivery_item", StringComparison.OrdinalIgnoreCase) ||
@@ -404,7 +465,7 @@ namespace pz6.forms
                     MessageBox.Show(string.Join("\n", errors), "Ошибка валидации", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
-                // специальная валидация пароля для создания сотрудника
+                
                 if (string.Equals(tableName, "employee", StringComparison.OrdinalIgnoreCase) && !editId.HasValue)
                 {
                     if (pwdBox == null || pwdConfirmBox == null)
@@ -500,7 +561,7 @@ namespace pz6.forms
         {
             var message = ex.Message ?? string.Empty;
             var lower = message.ToLowerInvariant();
-            if (lower.Contains("unique constraint") || lower.Contains("constraint failed"))
+            if (lower.Contains("unique constraint") || lower.Contains("primary key"))
             {
                 if (lower.Contains("delivery_item") && lower.Contains("product_id"))
                     return "Такая позиция товара уже добавлена в выбранную поставку.";
@@ -508,6 +569,8 @@ namespace pz6.forms
                     return "Такая позиция товара уже добавлена в выбранный заказ.";
                 return "Такая запись уже существует. Проверьте введённые данные.";
             }
+            if (lower.Contains("check constraint"))
+                return "Некорректное значение поля.";
             if (lower.Contains("not null"))
                 return "Не заполнено обязательное поле. Проверьте данные и повторите попытку.";
             if (lower.Contains("foreign key"))
@@ -520,11 +583,13 @@ namespace pz6.forms
             if (ctrl is ComboBox cb)
             {
                 var value = cb.SelectedValue;
+                if (cb.DataSource == null)
+                    return cb.SelectedItem == null ? null : (object)cb.SelectedItem.ToString();
                 return value == null || value == DBNull.Value ? null : value;
             }
             if (ctrl is TextBox tb)
             {
-                // If this is the password field, hash it before returning
+                
                 if (tb == pwdBox)
                 {
                     return HashPassword(tb.Text);
@@ -536,6 +601,13 @@ namespace pz6.forms
                 return dtp.Value.Date.ToString("yyyy-MM-dd");
             }
             return null;
+        }
+
+        private bool IsComboBoxEmpty(ComboBox comboBox)
+        {
+            if (comboBox == null || comboBox.SelectedIndex < 0) return true;
+            if (comboBox.DataSource == null) return comboBox.SelectedItem == null;
+            return comboBox.SelectedValue == null || comboBox.SelectedValue == DBNull.Value;
         }
 
         private string HashPassword(string password)
@@ -623,6 +695,34 @@ namespace pz6.forms
             e.Handled = true;
         }
 
+        private void NumericTextBox_TextChanged(object sender, EventArgs e)
+        {
+            var textBox = sender as TextBox;
+            if (textBox == null || textBox.Tag == null || !colTypes.ContainsKey(textBox.Tag.ToString())) return;
+
+            bool isInteger = IsIntegerType(colTypes[textBox.Tag.ToString()]);
+            string source = textBox.Text;
+            string filtered = string.Empty;
+            bool separatorAdded = false;
+            foreach (char character in source)
+            {
+                if (char.IsDigit(character))
+                {
+                    filtered += character;
+                }
+                else if (!isInteger && (character == '.' || character == ',') && !separatorAdded)
+                {
+                    filtered += character;
+                    separatorAdded = true;
+                }
+            }
+
+            if (filtered == source) return;
+            int selectionStart = Math.Min(textBox.SelectionStart, filtered.Length);
+            textBox.Text = filtered;
+            textBox.SelectionStart = selectionStart;
+        }
+
         private void NumericTextBox_KeyPress(object sender, KeyPressEventArgs e)
         {
             if (char.IsControl(e.KeyChar) || char.IsDigit(e.KeyChar)) return;
@@ -634,6 +734,47 @@ namespace pz6.forms
                 !textBox.Text.Contains(".") && !textBox.Text.Contains(",")) return;
 
             e.Handled = true;
+        }
+
+        private void PhoneTextBox_KeyPress(object sender, KeyPressEventArgs e)
+        {
+            if (char.IsControl(e.KeyChar) || char.IsDigit(e.KeyChar) || e.KeyChar == '+' ||
+                e.KeyChar == '-' || e.KeyChar == '(' || e.KeyChar == ')' || e.KeyChar == ' ')
+                return;
+            e.Handled = true;
+        }
+
+        private void PhoneTextBox_TextChanged(object sender, EventArgs e)
+        {
+            var textBox = sender as TextBox;
+            if (textBox == null) return;
+
+            var filtered = new System.Text.StringBuilder();
+            foreach (char character in textBox.Text)
+            {
+                if (char.IsDigit(character) || character == '+' || character == '-' ||
+                    character == '(' || character == ')' || character == ' ')
+                    filtered.Append(character);
+            }
+
+            var value = filtered.ToString();
+            if (value == textBox.Text) return;
+            int selectionStart = Math.Min(textBox.SelectionStart, value.Length);
+            textBox.Text = value;
+            textBox.SelectionStart = selectionStart;
+        }
+
+        private bool IsPhoneColumn(string columnName)
+        {
+            return columnName.Equals("phone", StringComparison.OrdinalIgnoreCase) ||
+                   columnName.IndexOf("phone", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                   columnName.IndexOf("телефон", StringComparison.OrdinalIgnoreCase) >= 0;
+        }
+
+        private bool IsEmailColumn(string columnName)
+        {
+            return columnName.Equals("email", StringComparison.OrdinalIgnoreCase) ||
+                   columnName.IndexOf("email", StringComparison.OrdinalIgnoreCase) >= 0;
         }
 
         private bool IsNumericType(string type)
@@ -670,13 +811,13 @@ namespace pz6.forms
                     sc.Close();
                 }
             }
-            catch { if (/*sc!=null &&*/ false) { } }
+            catch { if ( false) { } }
             return null;
         }
 
         private string GetDisplayColumnForTable(string table)
         {
-            // Предпочтительно "name", иначе первая TEXT колонка
+            
             try
             {
                 using (var sc = new SQLiteConnection(connString))
@@ -722,7 +863,7 @@ namespace pz6.forms
             {
                 {"name","Название"}, {"phone","Телефон"}, {"email","Электронная почта"}, {"last_name","Фамилия"}, {"first_name","Имя"}, {"patronymic","Отчество"}, {"login","Логин"}, {"delivery_date","Дата поставки"}, {"order_date","Дата заказа"}, {"city","Город"}, {"street","Улица"}, {"house_number","Номер дома"}, {"apartment","Квартира"}, {"building","Корпус"}, {"quantity","Количество"}, {"price","Цена"}, {"article","Артикул"}, {"product_type","Тип товара"}, {"sale_price","Цена продажи"}
             };
-            // дополнительные соответствия для FK
+            
             var fkMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
             {
                 {"warehouse_id","Склад"}, {"supplier_id","Поставщик"}, {"client_id","Клиент"}, {"employee_id","Сотрудник"}, {"status_id","Статус"}, {"product_id","Товар"}, {"role_id","Роль"}

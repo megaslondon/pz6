@@ -107,3 +107,4 @@ D:\bd\pz6ed\pz6\pz6\obj\x64\Debug\pz6.csproj.CoreCompileInputs.cache
 D:\bd\pz6ed\pz6\pz6\obj\x64\Debug\pz6.csproj.Up2Date
 D:\bd\pz6ed\pz6\pz6\obj\x64\Debug\pz6.exe
 D:\bd\pz6ed\pz6\pz6\obj\x64\Debug\pz6.pdb
+C:\Users\vboxuser\bd\pz6\pz6\obj\x64\Debug\pz6.reports.ReportGen.resources

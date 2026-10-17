@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.ComponentModel;
 using System.Data;
 using System.Data.SQLite;
@@ -35,12 +35,12 @@ namespace pz6.forms
 
                 case "Заказы":
                     topQuery = "SELECT o.order_id AS 'Номер заказа', o.order_date AS 'Дата', s.name AS 'Статус', o.city AS 'Город', o.street AS 'Улица', o.house_number AS 'Дом', o.building AS 'Корпус', o.apartment AS 'Квартира' FROM orders o JOIN status s ON o.status_id = s.status_id;";
-                    bottomQueryTemplate = null; // will be determined dynamically
+                    bottomQueryTemplate = null; 
                     break;
 
                 case "Поставки":
                     topQuery = "SELECT d.delivery_id AS 'ИД поставки', d.delivery_date AS 'Дата', e.last_name || ' ' || e.first_name AS 'Сотрудник', w.name AS 'Склад', s.name AS 'Поставщик' FROM delivery d JOIN employee e ON d.employee_id = e.employee_id JOIN warehouse w ON d.warehouse_id = w.warehouse_id LEFT JOIN supplier s ON d.supplier_id = s.supplier_id;";
-                    // bottomQueryTemplate will be chosen dynamically depending on existence of delivery composition table
+                    
                     bottomQueryTemplate = null;
                     break;
 
@@ -49,14 +49,14 @@ namespace pz6.forms
                     break;
             }
 
-            // load top
+            
             if (!string.IsNullOrEmpty(topQuery))
             {
                 topAdapter = new SQLiteDataAdapter(topQuery, sc);
                 topDt.Clear();
                 topAdapter.Fill(topDt);
                 dataGridView1.DataSource = topDt;
-                // скрыть идентификатор в верхней таблице, если он есть
+                
                 try
                 {
                     if (dataGridView1.Columns.Count > 0)
@@ -68,7 +68,7 @@ namespace pz6.forms
                 catch { }
             }
 
-            // initial bottom empty
+            
             dataGridView2.DataSource = bottomDt;
             try
             {
@@ -80,7 +80,7 @@ namespace pz6.forms
             }
             catch { }
 
-            // subscribe events
+            
             dataGridView1.SelectionChanged += DataGridView1_SelectionChanged;
 
             InsTableTop.Click += InsTableTop_Click;
@@ -93,7 +93,7 @@ namespace pz6.forms
             DelTableBottom.Click += DelTableBottom_Click;
             CloseTableBottom.Click += CloseTableBottom_Click;
 
-            // попытаться загрузить иконки
+            
             try
             {
                 var iconsDir = FindIconsDir();
@@ -168,7 +168,8 @@ namespace pz6.forms
                         var columns = new System.Collections.Generic.List<string>();
                         while (reader.Read()) columns.Add(reader[1].ToString());
                         if (columns.Exists(c => c.Equals(parentColumn, StringComparison.OrdinalIgnoreCase)) &&
-                            columns.Exists(c => c.Equals("product_id", StringComparison.OrdinalIgnoreCase)))
+                            columns.Exists(c => c.Equals("product_id", StringComparison.OrdinalIgnoreCase)) &&
+                            columns.Exists(c => c.Equals("quantity", StringComparison.OrdinalIgnoreCase)))
                         {
                             return table;
                         }
@@ -255,53 +256,16 @@ namespace pz6.forms
         private void LoadOrderComposition(int orderId)
         {
             bottomDt.Clear();
-            // find table that contains order_id
             string table = FindCompositionTable("order_id");
             if (!string.IsNullOrEmpty(table))
             {
-                // try to detect product relationship
-                // if table has product_id and product exists, join
-                string productTable = null;
-                try
-                {
-                    sc.Open();
-                    using (var cmd = new SQLiteCommand($"PRAGMA table_info({table});", sc))
-                    using (var r = cmd.ExecuteReader())
-                    {
-                        while (r.Read())
-                        {
-                            var col = r[1].ToString();
-                            if (col.Equals("product_id", StringComparison.OrdinalIgnoreCase)) productTable = "product";
-                        }
-                    }
-                    sc.Close();
-                }
-                catch { if (sc.State == ConnectionState.Open) sc.Close(); }
-
-                if (productTable != null)
-                {
-                    string q = $"SELECT {table}.order_id AS 'Номер заказа', product.name AS 'Товар', {table}.quantity AS 'Количество' FROM {table} JOIN product ON {table}.product_id = product.product_id WHERE {table}.order_id = @id;";
+                    string q = $"SELECT {table}.order_id AS 'order_id', {table}.product_id AS 'product_id', product.name AS 'Товар', {table}.quantity AS 'Количество' FROM {table} JOIN product ON {table}.product_id = product.product_id WHERE {table}.order_id = @id;";
                     bottomAdapter = new SQLiteDataAdapter(q, sc);
                     bottomAdapter.SelectCommand.Parameters.AddWithValue("@id", orderId);
                     bottomAdapter.Fill(bottomDt);
                     dataGridView2.DataSource = bottomDt;
-                    try { if (dataGridView2.Columns.Count > 0) { dataGridView2.Columns[0].Visible = false; dataGridView2.Columns[0].ReadOnly = true; } } catch { }
+                    HideCompositionKeys();
                     return;
-                }
-
-                // else select all columns from that table for order
-                string q2 = $"SELECT * FROM {table} WHERE order_id = @id;";
-                bottomAdapter = new SQLiteDataAdapter(q2, sc);
-                bottomAdapter.SelectCommand.Parameters.AddWithValue("@id", orderId);
-                bottomAdapter.Fill(bottomDt);
-                if (bottomDt.Columns.Count == 0)
-                {
-                    bottomDt.Columns.Add("Сообщение");
-                    bottomDt.Rows.Add("Состав заказа не найден.");
-                }
-                dataGridView2.DataSource = bottomDt;
-                try { if (dataGridView2.Columns.Count > 0) { dataGridView2.Columns[0].Visible = false; dataGridView2.Columns[0].ReadOnly = true; } } catch { }
-                return;
             }
 
             bottomDt.Columns.Clear();
@@ -319,7 +283,7 @@ namespace pz6.forms
             bottomAdapter.SelectCommand = cmd;
             bottomAdapter.Fill(bottomDt);
             dataGridView2.DataSource = bottomDt;
-            // скрыть id колонки снизу, если она есть
+            
             try
             {
                 if (dataGridView2.Columns.Count > 0)
@@ -335,54 +299,19 @@ namespace pz6.forms
         {
             bottomDt.Clear();
 
-            // попробуем найти таблицу состава динамически по колонке delivery_id
             string compTable = FindCompositionTable("delivery_id");
             if (!string.IsNullOrEmpty(compTable))
             {
-                // если есть таблица product и поле product_id, сделаем JOIN
-                bool hasProduct = false;
-                try
-                {
-                    sc.Open();
-                    using (var cmd = new SQLiteCommand($"PRAGMA table_info({compTable});", sc))
-                    using (var r = cmd.ExecuteReader())
-                    {
-                        while (r.Read())
-                        {
-                            if (r[1].ToString().Equals("product_id", StringComparison.OrdinalIgnoreCase)) hasProduct = true;
-                        }
-                    }
-                    sc.Close();
-                }
-                catch { if (sc.State == ConnectionState.Open) sc.Close(); }
-
-                if (hasProduct)
-                {
-                    string q = $"SELECT {compTable}.delivery_id AS 'ИД поставки', p.name AS 'Товар', {compTable}.quantity AS 'Количество' FROM {compTable} JOIN product p ON {compTable}.product_id = p.product_id WHERE {compTable}.delivery_id = @id;";
+                    string q = $"SELECT {compTable}.delivery_id AS 'delivery_id', {compTable}.product_id AS 'product_id', p.name AS 'Товар', {compTable}.quantity AS 'Количество' FROM {compTable} JOIN product p ON {compTable}.product_id = p.product_id WHERE {compTable}.delivery_id = @id;";
                     bottomAdapter = new SQLiteDataAdapter(q, sc);
                     bottomAdapter.SelectCommand.Parameters.AddWithValue("@id", deliveryId);
                     bottomAdapter.Fill(bottomDt);
                     dataGridView2.DataSource = bottomDt;
-                    try { if (dataGridView2.Columns.Count > 0) { dataGridView2.Columns[0].Visible = false; dataGridView2.Columns[0].ReadOnly = true; } } catch { }
+                    HideCompositionKeys();
                     return;
-                }
-
-                // иначе просто выбрать строки из compTable
-                string q2 = $"SELECT * FROM {compTable} WHERE delivery_id = @id;";
-                bottomAdapter = new SQLiteDataAdapter(q2, sc);
-                bottomAdapter.SelectCommand.Parameters.AddWithValue("@id", deliveryId);
-                bottomAdapter.Fill(bottomDt);
-                if (bottomDt.Columns.Count == 0)
-                {
-                    bottomDt.Columns.Add("Сообщение");
-                    bottomDt.Rows.Add("Состав поставки пуст.");
-                }
-                dataGridView2.DataSource = bottomDt;
-                try { if (dataGridView2.Columns.Count > 0) { dataGridView2.Columns[0].Visible = false; dataGridView2.Columns[0].ReadOnly = true; } } catch { }
-                return;
             }
 
-            // Если состав поставки не найден, показываем пустую таблицу с сообщением
+            
             bottomDt.Clear();
             bottomDt.Columns.Clear();
             bottomDt.Columns.Add("Сообщение");
@@ -390,7 +319,14 @@ namespace pz6.forms
             dataGridView2.DataSource = bottomDt;
         }
 
-        // --- Toolstrip handlers (пока заглушки, реализация CRUD будет добавлена далее) ---
+        private void HideCompositionKeys()
+        {
+            if (dataGridView2.Columns.Contains("order_id")) dataGridView2.Columns["order_id"].Visible = false;
+            if (dataGridView2.Columns.Contains("delivery_id")) dataGridView2.Columns["delivery_id"].Visible = false;
+            if (dataGridView2.Columns.Contains("product_id")) dataGridView2.Columns["product_id"].Visible = false;
+        }
+
+        
         private void InsTableTop_Click(object sender, EventArgs e)
         {
             try
@@ -500,40 +436,77 @@ namespace pz6.forms
             var res = MessageBox.Show("Вы действительно хотите удалить выбранную запись?", "Подтвердите удаление", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
             if (res != DialogResult.Yes) return;
 
-            string sql = null;
-            if (this.Name == "Клиенты") sql = "DELETE FROM client WHERE client_id = @id;";
-            else if (this.Name == "Поставки") sql = "DELETE FROM delivery WHERE delivery_id = @id;";
-            else
+            if (this.Name != "Клиенты" && this.Name != "Поставки" && this.Name != "Заказы")
             {
                 MessageBox.Show("Удаление для этой таблицы не реализовано.", "Информация", MessageBoxButtons.OK, MessageBoxIcon.Information);
                 return;
             }
 
-            using (var cmd = new SQLiteCommand(sql, sc))
+            try
             {
-                cmd.Parameters.AddWithValue("@id", id);
-                try
-                {
-                    sc.Open();
-                    cmd.ExecuteNonQuery();
-                    sc.Close();
-                }
-                catch (SQLiteException ex)
-                {
-                    if (sc.State == ConnectionState.Open) sc.Close();
-                    MessageBox.Show(GetConstraintWarning(ex), "Предупреждение", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                }
-                catch (Exception ex)
-                {
-                    if (sc.State == ConnectionState.Open) sc.Close();
-                    MessageBox.Show("Ошибка при удалении: " + ex.Message, "Ошибка", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                    return;
-                }
+                DeleteParentRecord(this.Name, id);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(GetDeleteConstraintWarning(ex), "Предупреждение", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
             }
 
-            // обновить верхнюю таблицу
+            
             topDt.Clear();
             topAdapter.Fill(topDt);
+        }
+
+        private void DeleteParentRecord(string viewName, int id)
+        {
+            using (var connection = new SQLiteConnection(sc.ConnectionString))
+            {
+                connection.Open();
+                using (var transaction = connection.BeginTransaction())
+                {
+                    if (viewName == "Клиенты")
+                    {
+                        var orderItemsTable = FindCompositionTable("order_id");
+                        if (!string.IsNullOrEmpty(orderItemsTable))
+                            ExecuteDelete(connection, transaction, "DELETE FROM [" + orderItemsTable.Replace("]", "]]" ) + "] WHERE order_id IN (SELECT order_id FROM orders WHERE client_id = @id);", id);
+                        ExecuteDelete(connection, transaction, "DELETE FROM orders WHERE client_id = @id;", id);
+                        ExecuteDelete(connection, transaction, "DELETE FROM client WHERE client_id = @id;", id);
+                    }
+                    else if (viewName == "Заказы")
+                    {
+                        var orderItemsTable = FindCompositionTable("order_id");
+                        if (!string.IsNullOrEmpty(orderItemsTable))
+                            ExecuteDelete(connection, transaction, "DELETE FROM [" + orderItemsTable.Replace("]", "]]" ) + "] WHERE order_id = @id;", id);
+                        ExecuteDelete(connection, transaction, "DELETE FROM orders WHERE order_id = @id;", id);
+                    }
+                    else if (viewName == "Поставки")
+                    {
+                        var compositionTable = FindCompositionTableName(connection, transaction);
+                        if (!string.IsNullOrEmpty(compositionTable))
+                            ExecuteDelete(connection, transaction, "DELETE FROM [" + compositionTable.Replace("]", "]]" ) + "] WHERE delivery_id = @id;", id);
+                        ExecuteDelete(connection, transaction, "DELETE FROM delivery WHERE delivery_id = @id;", id);
+                    }
+                    transaction.Commit();
+                }
+            }
+        }
+
+        private void ExecuteDelete(SQLiteConnection connection, SQLiteTransaction transaction, string sql, int id)
+        {
+            using (var command = new SQLiteCommand(sql, connection, transaction))
+            {
+                command.Parameters.AddWithValue("@id", id);
+                command.ExecuteNonQuery();
+            }
+        }
+
+        private string FindCompositionTableName(SQLiteConnection connection, SQLiteTransaction transaction)
+        {
+            using (var command = new SQLiteCommand("SELECT name FROM sqlite_master WHERE type = 'table' AND name IN ('delivery_product', 'delivery_item') LIMIT 1;", connection, transaction))
+            {
+                var value = command.ExecuteScalar();
+                return value == null || value == DBNull.Value ? null : value.ToString();
+            }
         }
 
         private void CloseTableTop_Click(object sender, EventArgs e)
@@ -547,16 +520,13 @@ namespace pz6.forms
             {
                 if (this.Name == "Клиенты")
                 {
-                    using (var f = new InsEditGeneric("Добавление заказа", "orders", sc.ConnectionString, null))
+                    if (dataGridView1.CurrentRow == null) return;
+                    int clientId = Convert.ToInt32(dataGridView1.CurrentRow.Cells[0].Value);
+                    using (var f = new InsEditGeneric("Добавление заказа", "orders", sc.ConnectionString, null, "client_id", clientId))
                     {
                         if (f.ShowDialog() == DialogResult.OK)
                         {
-                            // refresh bottom for current client
-                            if (dataGridView1.CurrentRow != null)
-                            {
-                                int cid = Convert.ToInt32(dataGridView1.CurrentRow.Cells[0].Value);
-                                LoadOrdersForClient(cid);
-                            }
+                            LoadOrdersForClient(clientId);
                         }
                     }
                 }
@@ -683,80 +653,68 @@ namespace pz6.forms
             {
                 if (this.Name == "Клиенты")
                 {
-                    using (var cmd = new SQLiteCommand("DELETE FROM orders WHERE order_id = @id;", sc))
+                    int clientId = Convert.ToInt32(dataGridView1.CurrentRow.Cells[0].Value);
+                    using (var connection = new SQLiteConnection(sc.ConnectionString))
                     {
-                        cmd.Parameters.AddWithValue("@id", id);
-                        sc.Open(); cmd.ExecuteNonQuery(); sc.Close();
+                        connection.Open();
+                        using (var transaction = connection.BeginTransaction())
+                        {
+                            string orderItemsTable = FindCompositionTable("order_id");
+                            if (!string.IsNullOrEmpty(orderItemsTable))
+                                ExecuteDelete(connection, transaction, "DELETE FROM [" + orderItemsTable.Replace("]", "]]" ) + "] WHERE order_id = @id;", id);
+                            ExecuteDelete(connection, transaction, "DELETE FROM orders WHERE order_id = @id;", id);
+                            transaction.Commit();
+                        }
                     }
-                    bottomDt.Clear();
-                    // refresh bottom
-                    var cmd2 = new SQLiteCommand(bottomQueryTemplate, sc);
-                    cmd2.Parameters.AddWithValue("@id", (dataGridView1.CurrentRow?.Cells[0].Value ?? 0));
-                    bottomAdapter = new SQLiteDataAdapter(cmd2);
-                    bottomAdapter.Fill(bottomDt);
-                    dataGridView2.DataSource = bottomDt;
+                    LoadOrdersForClient(clientId);
                     return;
                 }
 
                 if (this.Name == "Поставки")
                 {
-                    // попробуем удалить из delivery_product по delivery_id и product_id, иначе удалить всю строку по delivery_id
-                    // определим, есть ли таблица delivery_product
-                    string checkSql = "SELECT name FROM sqlite_master WHERE type='table' AND (name='delivery_product' OR name='delivery_item') LIMIT 1;";
-                    string tableName = null;
-                    using (var cmd = new SQLiteCommand(checkSql, sc))
+                    if (dataGridView1.CurrentRow == null) return;
+                    int deliveryId = Convert.ToInt32(dataGridView1.CurrentRow.Cells[0].Value);
+                    string compositionTable = FindCompositionTable("delivery_id");
+                    if (string.IsNullOrEmpty(compositionTable) || !dataGridView2.Columns.Contains("product_id"))
                     {
-                        sc.Open();
-                        var obj = cmd.ExecuteScalar();
-                        sc.Close();
-                        if (obj != null) tableName = obj.ToString();
-                    }
-
-                    if (tableName == "delivery_product")
-                    {
-                        // постараемся получить product_id если есть в строке
-                        int deliveryId = id; // возможно первый столбец - delivery_id
-                        // Если в гриде есть колонка product_id, используем её
-                        int productId = -1;
-                        if (dataGridView2.Columns.Contains("product_id"))
-                        {
-                            var pid = dataGridView2.CurrentRow.Cells["product_id"].Value;
-                            int.TryParse(pid?.ToString(), out productId);
-                        }
-
-                        if (productId > 0)
-                        {
-                            using (var cmd = new SQLiteCommand("DELETE FROM delivery_product WHERE delivery_id = @d AND product_id = @p;", sc))
-                            {
-                                cmd.Parameters.AddWithValue("@d", deliveryId);
-                                cmd.Parameters.AddWithValue("@p", productId);
-                                sc.Open(); cmd.ExecuteNonQuery(); sc.Close();
-                            }
-                        }
-                        else
-                        {
-                            // удалить все позиции поставки
-                            using (var cmd = new SQLiteCommand("DELETE FROM delivery_product WHERE delivery_id = @d;", sc))
-                            {
-                                cmd.Parameters.AddWithValue("@d", deliveryId);
-                                sc.Open(); cmd.ExecuteNonQuery(); sc.Close();
-                            }
-                        }
-
-                        // обновить нижнюю таблицу
-                        LoadDeliveryComposition((int)(dataGridView1.CurrentRow.Cells[0].Value));
+                        MessageBox.Show("Не удалось определить позицию поставки для удаления.", "Ошибка", MessageBoxButtons.OK, MessageBoxIcon.Error);
                         return;
                     }
-
-                    // если таблицы состава нет, попробуем удалить саму поставку (если по ошибке пытались удалить внизу)
-                    using (var cmd = new SQLiteCommand("DELETE FROM delivery WHERE delivery_id = @id;", sc))
+                    if (!int.TryParse(dataGridView2.CurrentRow.Cells["product_id"].Value?.ToString(), out int productId)) return;
+                    using (var connection = new SQLiteConnection(sc.ConnectionString))
                     {
-                        cmd.Parameters.AddWithValue("@id", id);
-                        sc.Open(); cmd.ExecuteNonQuery(); sc.Close();
+                        connection.Open();
+                        using (var cmd = new SQLiteCommand("DELETE FROM [" + compositionTable.Replace("]", "]]" ) + "] WHERE delivery_id = @delivery_id AND product_id = @product_id;", connection))
+                        {
+                            cmd.Parameters.AddWithValue("@delivery_id", deliveryId);
+                            cmd.Parameters.AddWithValue("@product_id", productId);
+                            cmd.ExecuteNonQuery();
+                        }
                     }
-                    topDt.Clear(); topAdapter.Fill(topDt);
-                    bottomDt.Clear();
-                    dataGridView2.DataSource = bottomDt;
+                    LoadDeliveryComposition(deliveryId);
+                    return;
+                }
+
+                if (this.Name == "Заказы")
+                {
+                    if (dataGridView1.CurrentRow == null || !dataGridView2.Columns.Contains("product_id")) return;
+                    int orderId = Convert.ToInt32(dataGridView1.CurrentRow.Cells[0].Value);
+                    string compositionTable = FindCompositionTable("order_id");
+                    if (string.IsNullOrEmpty(compositionTable))
+                    {
+                        MessageBox.Show("Таблица состава заказа не найдена.", "Информация", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                        return;
+                    }
+                    if (!int.TryParse(dataGridView2.CurrentRow.Cells["product_id"].Value?.ToString(), out int productId)) return;
+                    using (var connection = new SQLiteConnection(sc.ConnectionString))
+                    using (var cmd = new SQLiteCommand("DELETE FROM [" + compositionTable.Replace("]", "]]" ) + "] WHERE order_id = @order_id AND product_id = @product_id;", connection))
+                    {
+                        cmd.Parameters.AddWithValue("@order_id", orderId);
+                        cmd.Parameters.AddWithValue("@product_id", productId);
+                        connection.Open();
+                        cmd.ExecuteNonQuery();
+                    }
+                    LoadOrderComposition(orderId);
                     return;
                 }
 
@@ -765,22 +723,32 @@ namespace pz6.forms
             catch (Exception ex)
             {
                 if (sc.State == ConnectionState.Open) sc.Close();
-                MessageBox.Show("Ошибка при удалении: " + ex.Message, "Ошибка", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                MessageBox.Show(GetDeleteConstraintWarning(ex), "Предупреждение", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
         }
 
         private string GetConstraintWarning(SQLiteException ex)
         {
             var message = (ex.Message ?? string.Empty).ToLowerInvariant();
-            if (message.Contains("delivery_item") && message.Contains("product_id"))
+            if (message.Contains("unique constraint") && message.Contains("delivery_item") && message.Contains("product_id"))
                 return "Такая позиция товара уже добавлена в выбранную поставку.";
-            if (message.Contains("unique constraint") || message.Contains("constraint failed"))
+            if (message.Contains("unique constraint") || message.Contains("primary key"))
                 return "Такая запись уже существует или дублирует существующие данные.";
             if (message.Contains("foreign key"))
-                return "Нельзя удалить запись: она используется в связанных данных.";
+                return "Нельзя сохранить запись: связанная запись не найдена или используется в другой записи.";
+            if (message.Contains("check constraint"))
+                return "Некорректное значение поля или сочетание связанных данных.";
             if (message.Contains("not null"))
                 return "Не заполнено обязательное поле.";
             return "Операция нарушает ограничение базы данных. Проверьте связанные записи.";
+        }
+
+        private string GetDeleteConstraintWarning(Exception ex)
+        {
+            var message = (ex.Message ?? string.Empty).ToLowerInvariant();
+            if (message.Contains("foreign key"))
+                return "Нельзя удалить запись: она используется в связанных данных.";
+            return "Ошибка при удалении: " + ex.Message;
         }
 
         private void CloseTableBottom_Click(object sender, EventArgs e)
