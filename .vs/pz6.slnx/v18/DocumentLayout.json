@@ -3,11 +3,23 @@
   "WorkspaceRootPath": "C:\\Users\\vboxuser\\bd\\pz6\\",
   "Documents": [
     {
-      "AbsoluteMoniker": "D:0:0:{1FDE454D-4C01-46D1-B0D4-BBE61E0B4700}|pz6\\pz6.csproj|C:\\Users\\vboxuser\\bd\\pz6\\pz6\\forms\\table2.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "AbsoluteMoniker": "D:0:0:{1FDE454D-4C01-46D1-B0D4-BBE61E0B4700}|pz6\\pz6.csproj|C:\\Users\\vboxuser\\bd\\pz6\\pz6\\reports\\reportgen.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{1FDE454D-4C01-46D1-B0D4-BBE61E0B4700}|pz6\\pz6.csproj|solutionrelative:pz6\\reports\\reportgen.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{1FDE454D-4C01-46D1-B0D4-BBE61E0B4700}|pz6\\pz6.csproj|C:\\Users\\vboxuser\\bd\\pz6\\pz6\\forms\\table.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}|Form",
+      "RelativeMoniker": "D:0:0:{1FDE454D-4C01-46D1-B0D4-BBE61E0B4700}|pz6\\pz6.csproj|solutionrelative:pz6\\forms\\table.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}|Form"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{1FDE454D-4C01-46D1-B0D4-BBE61E0B4700}|pz6\\pz6.csproj|C:\\Users\\vboxuser\\bd\\pz6\\pz6\\forms\\form1.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{1FDE454D-4C01-46D1-B0D4-BBE61E0B4700}|pz6\\pz6.csproj|solutionrelative:pz6\\forms\\form1.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{1FDE454D-4C01-46D1-B0D4-BBE61E0B4700}|pz6\\pz6.csproj|c:\\users\\vboxuser\\bd\\pz6\\pz6\\forms\\table2.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
       "RelativeMoniker": "D:0:0:{1FDE454D-4C01-46D1-B0D4-BBE61E0B4700}|pz6\\pz6.csproj|solutionrelative:pz6\\forms\\table2.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
     },
     {
-      "AbsoluteMoniker": "D:0:0:{1FDE454D-4C01-46D1-B0D4-BBE61E0B4700}|pz6\\pz6.csproj|c:\\users\\vboxuser\\bd\\pz6\\pz6\\forms\\table2.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}|Form",
+      "AbsoluteMoniker": "D:0:0:{1FDE454D-4C01-46D1-B0D4-BBE61E0B4700}|pz6\\pz6.csproj|C:\\Users\\vboxuser\\bd\\pz6\\pz6\\forms\\table2.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}|Form",
       "RelativeMoniker": "D:0:0:{1FDE454D-4C01-46D1-B0D4-BBE61E0B4700}|pz6\\pz6.csproj|solutionrelative:pz6\\forms\\table2.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}|Form"
     },
     {
@@ -19,23 +31,11 @@
       "RelativeMoniker": "D:0:0:{1FDE454D-4C01-46D1-B0D4-BBE61E0B4700}|pz6\\pz6.csproj|solutionrelative:pz6\\forms\\inseditgeneric.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
     },
     {
-      "AbsoluteMoniker": "D:0:0:{1FDE454D-4C01-46D1-B0D4-BBE61E0B4700}|pz6\\pz6.csproj|C:\\Users\\vboxuser\\bd\\pz6\\pz6\\forms\\table.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}|Form",
-      "RelativeMoniker": "D:0:0:{1FDE454D-4C01-46D1-B0D4-BBE61E0B4700}|pz6\\pz6.csproj|solutionrelative:pz6\\forms\\table.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}|Form"
-    },
-    {
       "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\vboxuser\\.copilot\\plans\\plan-table2-crud.md||{EFC0BB08-EA7D-40C6-A696-C870411A895B}|MarkdownSecurePreview"
-    },
-    {
-      "AbsoluteMoniker": "D:0:0:{1FDE454D-4C01-46D1-B0D4-BBE61E0B4700}|pz6\\pz6.csproj|C:\\Users\\vboxuser\\bd\\pz6\\pz6\\reports\\reportgen.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
-      "RelativeMoniker": "D:0:0:{1FDE454D-4C01-46D1-B0D4-BBE61E0B4700}|pz6\\pz6.csproj|solutionrelative:pz6\\reports\\reportgen.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
     },
     {
       "AbsoluteMoniker": "D:0:0:{1FDE454D-4C01-46D1-B0D4-BBE61E0B4700}|pz6\\pz6.csproj|C:\\Users\\vboxuser\\bd\\pz6\\pz6\\reports\\reportgen.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}|Form",
       "RelativeMoniker": "D:0:0:{1FDE454D-4C01-46D1-B0D4-BBE61E0B4700}|pz6\\pz6.csproj|solutionrelative:pz6\\reports\\reportgen.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}|Form"
-    },
-    {
-      "AbsoluteMoniker": "D:0:0:{1FDE454D-4C01-46D1-B0D4-BBE61E0B4700}|pz6\\pz6.csproj|c:\\users\\vboxuser\\bd\\pz6\\pz6\\forms\\form1.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
-      "RelativeMoniker": "D:0:0:{1FDE454D-4C01-46D1-B0D4-BBE61E0B4700}|pz6\\pz6.csproj|solutionrelative:pz6\\forms\\form1.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
     },
     {
       "AbsoluteMoniker": "D:0:0:{1FDE454D-4C01-46D1-B0D4-BBE61E0B4700}|pz6\\pz6.csproj|C:\\Users\\vboxuser\\bd\\pz6\\pz6\\forms\\form1.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}|Form",
@@ -73,7 +73,7 @@
       "DocumentGroups": [
         {
           "DockedWidth": 200,
-          "SelectedChildIndex": 1,
+          "SelectedChildIndex": 4,
           "Children": [
             {
               "$type": "Bookmark",
@@ -81,32 +81,58 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 0,
+              "DocumentIndex": 3,
               "Title": "Table2.cs",
               "DocumentMoniker": "C:\\Users\\vboxuser\\bd\\pz6\\pz6\\forms\\Table2.cs",
               "RelativeDocumentMoniker": "pz6\\forms\\Table2.cs",
               "ToolTip": "C:\\Users\\vboxuser\\bd\\pz6\\pz6\\forms\\Table2.cs",
               "RelativeToolTip": "pz6\\forms\\Table2.cs",
-              "ViewState": "AgIAAP0BAAAAAAAAAAApwAYCAAAPAAAAAAAAAA==",
+              "ViewState": "AgIAAP0BAAAAAAAAAAApwAQCAABBAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
               "WhenOpened": "2026-10-16T05:49:52.084Z",
               "EditorCaption": ""
             },
             {
               "$type": "Document",
-              "DocumentIndex": 1,
-              "Title": "Table2.cs [\u041A\u043E\u043D\u0441\u0442\u0440\u0443\u043A\u0442\u043E\u0440]",
-              "DocumentMoniker": "C:\\Users\\vboxuser\\bd\\pz6\\pz6\\forms\\Table2.cs",
-              "RelativeDocumentMoniker": "pz6\\forms\\Table2.cs",
-              "ToolTip": "C:\\Users\\vboxuser\\bd\\pz6\\pz6\\forms\\Table2.cs [\u041A\u043E\u043D\u0441\u0442\u0440\u0443\u043A\u0442\u043E\u0440]",
-              "RelativeToolTip": "pz6\\forms\\Table2.cs [\u041A\u043E\u043D\u0441\u0442\u0440\u0443\u043A\u0442\u043E\u0440]",
+              "DocumentIndex": 2,
+              "Title": "Form1.cs",
+              "DocumentMoniker": "C:\\Users\\vboxuser\\bd\\pz6\\pz6\\forms\\Form1.cs",
+              "RelativeDocumentMoniker": "pz6\\forms\\Form1.cs",
+              "ToolTip": "C:\\Users\\vboxuser\\bd\\pz6\\pz6\\forms\\Form1.cs",
+              "RelativeToolTip": "pz6\\forms\\Form1.cs",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAkAAAAZAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-10-17T08:17:17.918Z",
+              "WhenOpened": "2026-10-14T18:16:01.401Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 1,
+              "Title": "Table.cs [\u041A\u043E\u043D\u0441\u0442\u0440\u0443\u043A\u0442\u043E\u0440]",
+              "DocumentMoniker": "C:\\Users\\vboxuser\\bd\\pz6\\pz6\\forms\\Table.cs",
+              "RelativeDocumentMoniker": "pz6\\forms\\Table.cs",
+              "ToolTip": "C:\\Users\\vboxuser\\bd\\pz6\\pz6\\forms\\Table.cs [\u041A\u043E\u043D\u0441\u0442\u0440\u0443\u043A\u0442\u043E\u0440]",
+              "RelativeToolTip": "pz6\\forms\\Table.cs [\u041A\u043E\u043D\u0441\u0442\u0440\u0443\u043A\u0442\u043E\u0440]",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2026-10-16T07:53:58.214Z",
               "EditorCaption": " [\u041A\u043E\u043D\u0441\u0442\u0440\u0443\u043A\u0442\u043E\u0440]"
             },
             {
               "$type": "Document",
-              "DocumentIndex": 2,
+              "DocumentIndex": 0,
+              "Title": "ReportGen.cs",
+              "DocumentMoniker": "C:\\Users\\vboxuser\\bd\\pz6\\pz6\\reports\\ReportGen.cs",
+              "RelativeDocumentMoniker": "pz6\\reports\\ReportGen.cs",
+              "ToolTip": "C:\\Users\\vboxuser\\bd\\pz6\\pz6\\reports\\ReportGen.cs",
+              "RelativeToolTip": "pz6\\reports\\ReportGen.cs",
+              "ViewState": "AgIAAIAAAAAAAAAAAAAWwI4AAAAeAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2026-10-16T21:34:19.78Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 5,
               "Title": "Table.cs",
               "DocumentMoniker": "C:\\Users\\vboxuser\\bd\\pz6\\pz6\\forms\\Table.cs",
               "RelativeDocumentMoniker": "pz6\\forms\\Table.cs",
@@ -120,18 +146,17 @@
             {
               "$type": "Document",
               "DocumentIndex": 4,
-              "Title": "Table.cs [\u041A\u043E\u043D\u0441\u0442\u0440\u0443\u043A\u0442\u043E\u0440]",
-              "DocumentMoniker": "C:\\Users\\vboxuser\\bd\\pz6\\pz6\\forms\\Table.cs",
-              "RelativeDocumentMoniker": "pz6\\forms\\Table.cs",
-              "ToolTip": "C:\\Users\\vboxuser\\bd\\pz6\\pz6\\forms\\Table.cs [\u041A\u043E\u043D\u0441\u0442\u0440\u0443\u043A\u0442\u043E\u0440]",
-              "RelativeToolTip": "pz6\\forms\\Table.cs [\u041A\u043E\u043D\u0441\u0442\u0440\u0443\u043A\u0442\u043E\u0440]",
+              "Title": "Table2.cs [\u041A\u043E\u043D\u0441\u0442\u0440\u0443\u043A\u0442\u043E\u0440]",
+              "DocumentMoniker": "C:\\Users\\vboxuser\\bd\\pz6\\pz6\\forms\\Table2.cs",
+              "RelativeDocumentMoniker": "pz6\\forms\\Table2.cs",
+              "ToolTip": "C:\\Users\\vboxuser\\bd\\pz6\\pz6\\forms\\Table2.cs [\u041A\u043E\u043D\u0441\u0442\u0440\u0443\u043A\u0442\u043E\u0440]",
+              "RelativeToolTip": "pz6\\forms\\Table2.cs [\u041A\u043E\u043D\u0441\u0442\u0440\u0443\u043A\u0442\u043E\u0440]",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-10-16T07:53:58.214Z",
-              "EditorCaption": " [\u041A\u043E\u043D\u0441\u0442\u0440\u0443\u043A\u0442\u043E\u0440]"
+              "WhenOpened": "2026-10-17T08:17:17.918Z"
             },
             {
               "$type": "Document",
-              "DocumentIndex": 3,
+              "DocumentIndex": 6,
               "Title": "InsEditGeneric.cs",
               "DocumentMoniker": "C:\\Users\\vboxuser\\bd\\pz6\\pz6\\forms\\InsEditGeneric.cs",
               "RelativeDocumentMoniker": "pz6\\forms\\InsEditGeneric.cs",
@@ -139,12 +164,11 @@
               "RelativeToolTip": "pz6\\forms\\InsEditGeneric.cs",
               "ViewState": "AgIAAAAAAAAAAAAAAAAAAC4AAAAPAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-10-16T06:11:29.323Z",
-              "EditorCaption": ""
+              "WhenOpened": "2026-10-16T06:11:29.323Z"
             },
             {
               "$type": "Document",
-              "DocumentIndex": 5,
+              "DocumentIndex": 7,
               "Title": "plan-table2-crud.md [\u041F\u0440\u0435\u0434\u0432\u0430\u0440\u0438\u0442\u0435\u043B\u044C\u043D\u0430\u044F \u0432\u0435\u0440\u0441\u0438\u044F]",
               "DocumentMoniker": "C:\\Users\\vboxuser\\.copilot\\plans\\plan-table2-crud.md",
               "RelativeDocumentMoniker": "..\\..\\.copilot\\plans\\plan-table2-crud.md",
@@ -156,20 +180,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 6,
-              "Title": "ReportGen.cs",
-              "DocumentMoniker": "C:\\Users\\vboxuser\\bd\\pz6\\pz6\\reports\\ReportGen.cs",
-              "RelativeDocumentMoniker": "pz6\\reports\\ReportGen.cs",
-              "ToolTip": "C:\\Users\\vboxuser\\bd\\pz6\\pz6\\reports\\ReportGen.cs",
-              "RelativeToolTip": "pz6\\reports\\ReportGen.cs",
-              "ViewState": "AgIAAAMAAAAAAAAAAAAYwA0AAAAVAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-10-16T21:34:19.78Z",
-              "EditorCaption": ""
-            },
-            {
-              "$type": "Document",
-              "DocumentIndex": 7,
+              "DocumentIndex": 8,
               "Title": "ReportGen.cs [\u041A\u043E\u043D\u0441\u0442\u0440\u0443\u043A\u0442\u043E\u0440]",
               "DocumentMoniker": "C:\\Users\\vboxuser\\bd\\pz6\\pz6\\reports\\ReportGen.cs",
               "RelativeDocumentMoniker": "pz6\\reports\\ReportGen.cs",
@@ -181,26 +192,15 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 8,
-              "Title": "Form1.cs",
-              "DocumentMoniker": "C:\\Users\\vboxuser\\bd\\pz6\\pz6\\forms\\Form1.cs",
-              "RelativeDocumentMoniker": "pz6\\forms\\Form1.cs",
-              "ToolTip": "C:\\Users\\vboxuser\\bd\\pz6\\pz6\\forms\\Form1.cs",
-              "RelativeToolTip": "pz6\\forms\\Form1.cs",
-              "ViewState": "AgIAAAAAAAAAAAAAAAAAADsAAAAJAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-10-14T18:16:01.401Z",
-              "EditorCaption": ""
-            },
-            {
-              "$type": "Document",
               "DocumentIndex": 9,
               "Title": "Form1.cs [\u041A\u043E\u043D\u0441\u0442\u0440\u0443\u043A\u0442\u043E\u0440]",
               "DocumentMoniker": "C:\\Users\\vboxuser\\bd\\pz6\\pz6\\forms\\Form1.cs",
               "RelativeDocumentMoniker": "pz6\\forms\\Form1.cs",
-              "ToolTip": "D:\\bd\\pz6ed\\pz6\\pz6\\forms\\Form1.cs [\u041A\u043E\u043D\u0441\u0442\u0440\u0443\u043A\u0442\u043E\u0440]",
+              "ToolTip": "C:\\Users\\vboxuser\\bd\\pz6\\pz6\\forms\\Form1.cs [\u041A\u043E\u043D\u0441\u0442\u0440\u0443\u043A\u0442\u043E\u0440]",
+              "RelativeToolTip": "pz6\\forms\\Form1.cs [\u041A\u043E\u043D\u0441\u0442\u0440\u0443\u043A\u0442\u043E\u0440]",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-10-15T14:57:00.015Z"
+              "WhenOpened": "2026-10-15T14:57:00.015Z",
+              "EditorCaption": " [\u041A\u043E\u043D\u0441\u0442\u0440\u0443\u043A\u0442\u043E\u0440]"
             },
             {
               "$type": "Document",
@@ -211,7 +211,8 @@
               "ToolTip": "C:\\Users\\vboxuser\\bd\\pz6\\pz6\\forms\\Form1.resx",
               "RelativeToolTip": "pz6\\forms\\Form1.resx",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001005|",
-              "WhenOpened": "2026-10-16T21:39:08.793Z"
+              "WhenOpened": "2026-10-16T21:39:08.793Z",
+              "EditorCaption": ""
             },
             {
               "$type": "Document",
@@ -223,7 +224,8 @@
               "RelativeToolTip": "pz6\\forms\\Form1.Designer.cs",
               "ViewState": "AgIAAAAAAAAAAAAAAAAAABYAAAAIAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-10-15T15:03:32.333Z"
+              "WhenOpened": "2026-10-15T15:03:32.333Z",
+              "EditorCaption": ""
             },
             {
               "$type": "Document",
@@ -270,8 +272,7 @@
               "RelativeToolTip": "pz6\\forms\\Table2.Designer.cs",
               "ViewState": "AgIAABUAAAAAAAAAAABBwAAAAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-10-16T06:12:56.234Z",
-              "EditorCaption": ""
+              "WhenOpened": "2026-10-16T06:12:56.234Z"
             }
           ]
         }

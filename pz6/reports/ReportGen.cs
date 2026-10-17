@@ -135,13 +135,18 @@ namespace pz6.reports
                 var snapshot = table.Copy();
                 button1.Enabled = false;
 
+                Excel.Application application = null;
+                Excel.Workbook workbook = null;
+                Excel.Worksheet worksheet = null;
+
+
                 Task.Run(() =>
                 {
-                    Excel.Application application = new Excel.Application { Visible = false };
-                    Excel.Workbook workbook = application.Workbooks.Add(System.Reflection.Missing.Value);
-                    Excel.Worksheet worksheet = (Excel.Worksheet)workbook.Sheets[1];
                     try
                     {
+                        application = new Excel.Application { Visible = false };
+                        workbook = application.Workbooks.Add(System.Reflection.Missing.Value);
+                        worksheet = (Excel.Worksheet)workbook.Sheets[1];
                         for (int c = 0; c < snapshot.Columns.Count; c++)
                             worksheet.Cells[1, c + 1] = snapshot.Columns[c].ColumnName;
                         for (int r = 0; r < snapshot.Rows.Count; r++)
@@ -182,12 +187,14 @@ namespace pz6.reports
                 var snapshot = table.Copy();
                 button1.Enabled = false;
 
+                Word.Application wordApp = null;
+                Word.Document wordDoc = null;
+
                 Task.Run(() =>
                 {
-                    Word.Application wordApp = new Word.Application { Visible = false };
-                    Word.Document wordDoc = null;
                     try
                     {
+                        wordApp = new Word.Application { Visible = false };
                         wordDoc = wordApp.Documents.Add();
                         Word.Table wordTable = wordDoc.Tables.Add(wordDoc.Range(0, 0), snapshot.Rows.Count + 1, snapshot.Columns.Count);
                         wordTable.Borders.Enable = 1;
